@@ -1,0 +1,13 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Runtime data
+.agents/
+refs/
+.gemini/
+
+# OS files
+.DS_Store
+Thumbs.db

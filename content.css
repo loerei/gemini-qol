@@ -1,0 +1,437 @@
+/* Sidebar Chat List Checkbox Injection Styles */
+gem-nav-list-item {
+  position: relative !important;
+}
+
+gem-nav-list-item.qol-has-checkbox a {
+  padding-left: 42px !important;
+}
+
+.gemini-qol-checkbox-container {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  width: 20px;
+  cursor: pointer;
+}
+
+.gemini-qol-checkbox-container input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.gemini-qol-custom-checkbox {
+  position: relative;
+  height: 16px;
+  width: 16px;
+  background-color: transparent;
+  border: 1.5px solid var(--gem-sys-color--on-surface-variant, #8e918f);
+  border-radius: 4px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+}
+
+.gemini-qol-checkbox-container:hover .gemini-qol-custom-checkbox {
+  border-color: var(--gem-sys-color--primary, #5b96ee);
+  box-shadow: 0 0 0 3px rgba(91, 150, 238, 0.15);
+}
+
+/* Checked state with Gemini Aurora Brand Gradient */
+.gemini-qol-checkbox-container input:checked ~ .gemini-qol-custom-checkbox {
+  background: linear-gradient(135deg, #a67bf2 0%, #5b96ee 100%);
+  border-color: transparent;
+}
+
+.gemini-qol-custom-checkbox:after {
+  content: "";
+  position: absolute;
+  display: none;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.gemini-qol-checkbox-container input:checked ~ .gemini-qol-custom-checkbox:after {
+  display: block;
+}
+
+/* Native Sidebar Toolbar Injection */
+.gemini-qol-sidebar-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 8px 12px;
+  margin: 6px 12px 10px 12px;
+  background: rgba(128, 128, 128, 0.06);
+  border: 1px solid rgba(128, 128, 128, 0.08);
+  border-radius: 10px;
+  box-sizing: border-box;
+  font-family: 'Google Sans', 'Segoe UI', Roboto, sans-serif;
+}
+
+.qol-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Custom Checkbox inside Toolbar */
+.qol-toolbar-select-all-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.qol-toolbar-select-all-container input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.qol-toolbar-custom-cb {
+  position: relative;
+  height: 16px;
+  width: 16px;
+  background-color: transparent;
+  border: 1.5px solid var(--gem-sys-color--on-surface-variant, #8e918f);
+  border-radius: 4px;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.qol-toolbar-select-all-container:hover .qol-toolbar-custom-cb {
+  border-color: var(--gem-sys-color--primary, #5b96ee);
+}
+
+/* Checked state */
+.qol-toolbar-select-all-container input:checked ~ .qol-toolbar-custom-cb {
+  background: linear-gradient(135deg, #a67bf2 0%, #5b96ee 100%);
+  border-color: transparent;
+}
+
+.qol-toolbar-custom-cb:after {
+  content: "";
+  position: absolute;
+  display: none;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.qol-toolbar-select-all-container input:checked ~ .qol-toolbar-custom-cb:after {
+  display: block;
+}
+
+/* Indeterminate State (Horizontal dash) */
+.qol-toolbar-select-all-container input:indeterminate ~ .qol-toolbar-custom-cb {
+  background: linear-gradient(135deg, #a67bf2 0%, #5b96ee 100%);
+  border-color: transparent;
+}
+
+.qol-toolbar-select-all-container input:indeterminate ~ .qol-toolbar-custom-cb:after {
+  display: block;
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  width: 6px;
+  height: 2px;
+  border: none;
+  background-color: white;
+  transform: none;
+}
+
+.qol-toolbar-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gem-sys-color--on-surface, #e3e3e3);
+}
+
+.qol-toolbar-status {
+  font-size: 11px;
+  font-weight: 500;
+  color: #a67bf2;
+  background: rgba(166, 123, 242, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Muted when disabled */
+.qol-toolbar-select-all-container input:disabled ~ .qol-toolbar-custom-cb {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.qol-toolbar-select-all-container input:disabled ~ .qol-toolbar-label {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Delete Button */
+.qol-toolbar-btn-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--gem-sys-color--on-surface-variant, #8e918f);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+}
+
+.qol-toolbar-btn-delete:hover:not(:disabled) {
+  background: rgba(224, 58, 58, 0.12);
+  color: #ff5b5b;
+  box-shadow: 0 0 8px rgba(255, 91, 91, 0.2);
+}
+
+.qol-toolbar-btn-delete:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.qol-toolbar-btn-delete:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Progress bar inside sidebar */
+.qol-toolbar-progress-container {
+  display: none;
+  height: 2px;
+  width: 100%;
+  background: rgba(128, 128, 128, 0.15);
+  border-radius: 1px;
+  overflow: hidden;
+  margin-top: 8px;
+  grid-column: span 2;
+}
+
+.qol-toolbar-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #5b96ee 0%, #a67bf2 50%, #5b96ee 100%);
+  background-size: 200% 100%;
+  transition: width 0.3s ease;
+  animation: shimmer 1.5s infinite linear;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+/* Link Button in Toolbar */
+.qol-toolbar-link-btn {
+  background: transparent;
+  border: none;
+  color: #5b96ee;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.qol-toolbar-link-btn:hover:not(:disabled) {
+  color: #a67bf2;
+  background: rgba(166, 123, 242, 0.08);
+}
+
+.qol-toolbar-link-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* Copy Response as Markdown QoL Button */
+.qol-copy-markdown-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  margin-left: 4px;
+  margin-right: 4px;
+  opacity: 1 !important; /* Always visible since it sits in the actions bar */
+  box-sizing: border-box;
+}
+
+.qol-copy-markdown-btn svg {
+  color: var(--gem-sys-color--on-surface-variant, #8e918f);
+  transition: color 0.2s;
+}
+
+.qol-copy-markdown-btn:hover svg {
+  color: #5b96ee;
+}
+
+.qol-copy-markdown-btn.copied svg {
+  animation: pulse 0.3s ease;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* Tooltip */
+.qol-copy-markdown-btn .qol-tooltip {
+  visibility: hidden;
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  text-align: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  font-family: 'Google Sans', 'Segoe UI', sans-serif;
+  z-index: 9999;
+}
+
+.qol-copy-markdown-btn:hover .qol-tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* ============================================================================
+   Quota Usage Monitor Styles
+   ============================================================================ */
+.mavatar-footer-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  max-width: calc(100% - 36px) !important;
+}
+
+.qol-quota-expanded {
+  font-size: 10px;
+  color: var(--gem-sys-color--on-surface-variant, #8e918f);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: 'Google Sans', 'Segoe UI', sans-serif;
+  user-select: none;
+  border-left: 1px solid rgba(128, 128, 128, 0.2);
+  padding-left: 10px;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+
+.qol-quota-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+}
+
+.qol-quota-metric {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.qol-quota-reset {
+  font-size: 9px;
+  opacity: 0.65;
+  color: var(--gem-sys-color--on-surface-variant, #8e918f);
+}
+
+.qol-quota-row:hover {
+  opacity: 0.85;
+}
+
+.qol-quota-label {
+  font-weight: 500;
+  color: var(--gem-sys-color--on-surface-variant, #8e918f);
+}
+
+.qol-quota-val {
+  font-weight: 700;
+  padding: 0px 4px;
+  border-radius: 3px;
+}
+
+.qol-quota-val.success {
+  color: #4caf50;
+  background: rgba(76, 175, 80, 0.12);
+}
+
+.qol-quota-val.warning {
+  color: #ff9800;
+  background: rgba(255, 152, 0, 0.12);
+}
+
+.qol-quota-val.danger {
+  color: #f44336;
+  background: rgba(244, 67, 54, 0.12);
+}
+
+/* Collapsed Avatar Badge */
+.mavatar-container {
+  position: relative !important;
+}
+
+.qol-quota-collapsed {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  background: linear-gradient(135deg, #a67bf2 0%, #5b96ee 100%);
+  color: #ffffff;
+  font-size: 8px;
+  font-weight: 800;
+  padding: 1px 3px;
+  border-radius: 6px;
+  border: 1.5px solid var(--gem-sys-color--surface, #1e1e1e);
+  pointer-events: auto;
+  cursor: help;
+  z-index: 99;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  display: none;
+}
+
+.qol-quota-collapsed.visible {
+  display: block;
+}
+

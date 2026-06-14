@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Gemini QoL",
+  "version": "1.0",
+  "description": "Thêm checkbox vào mỗi cuộc trò chuyện trên Gemini để hỗ trợ xóa hàng loạt qua dashboard.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://gemini.google.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://gemini.google.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
