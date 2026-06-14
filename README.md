@@ -1,19 +1,19 @@
 # Gemini QoL
 
-Extension Chrome hỗ trợ cải thiện trải nghiệm sử dụng (Quality of Life) trên Gemini.
+A Chrome extension designed to improve the user experience on Gemini.
 
-## Tính năng
+## Features
 
-- Thêm checkbox vào danh sách cuộc trò chuyện trên Gemini để hỗ trợ chọn và xóa hàng loạt.
-- Tích hợp giám sát hạn ngạch (quota monitor) hiển thị thông tin giới hạn sử dụng trong ngày (Daily) và tuần (Weekly).
+- Adds checkboxes to the Gemini conversation list to support bulk selection and deletion.
+- Integrates a quota monitor displaying daily and weekly usage limits.
 
-## Cài đặt
+## Installation
 
-1. Tải mã nguồn của extension này về máy.
-2. Mở trình duyệt Chrome và truy cập đường dẫn `chrome://extensions/`.
-3. Bật chế độ dành cho nhà phát triển (**Developer mode**).
-4. Chọn **Load unpacked** và trỏ đến thư mục chứa mã nguồn của extension.
+1. Download or clone this repository to your local machine.
+2. Open Chrome and navigate to `chrome://extensions/`.
+3. Enable **Developer mode** in the top right corner.
+4. Click **Load unpacked** and select the directory containing this extension's source code.
 
-## Giấy phép
+## License
 
-Mã nguồn được phát hành dưới giấy phép [MIT](LICENSE).
+This project is licensed under the [MIT License](LICENSE).
