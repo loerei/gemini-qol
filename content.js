@@ -150,16 +150,39 @@ class MarkdownConverter {
 class GeminiAutomator {
   // DOM Selectors mapped in one place for maintainability
   static SELECTORS = {
-    SIDEBAR_LIST: 'conversations-list[data-test-id="all-conversations"]',
-    CHAT_ITEM: 'gem-nav-list-item[data-test-id="conversation"]',
+    SIDEBAR_LIST: 'conversations-list[data-test-id="all-conversations"], [data-test-id="all-conversations"], .conversations-list',
+    CHAT_ITEM: 'gem-nav-list-item[data-test-id="conversation"], [data-test-id="conversation"], gem-nav-list-item',
     CHAT_LINK: 'a[href*="/app/"]',
-    ACTIONS_BTN: '[data-test-id="actions-menu-button"]',
-    CONFIRM_BTN: '[data-test-id="confirm-button"] button',
-    CANCEL_BTN: '[data-test-id="cancel-button"] button',
+    ACTIONS_BTN: '[data-test-id="actions-menu-button"], button[aria-haspopup="menu"]',
+    CONFIRM_BTN: '[data-test-id="confirm-button"] button, [data-test-id="confirm-button"], button[data-test-id="confirm-button"]',
+    CANCEL_BTN: '[data-test-id="cancel-button"] button, [data-test-id="cancel-button"], button[data-test-id="cancel-button"]',
     MENU_ITEMS: '.mat-mdc-menu-item, button[role="menuitem"]',
     NATIVE_COPY_ICON: 'mat-icon[fonticon="copy"], mat-icon[data-mat-icon-name="copy"], mat-icon[fonticon="content_copy"], mat-icon[data-mat-icon-name="content_copy"]',
     TOOLBAR_CONTAINER: '.actions-container, [role="toolbar"], .response-actions-container, .message-actions, .response-actions'
   };
+
+  /**
+   * Finds the native copy button inside a response element with multiple fallbacks.
+   * @param {HTMLElement} responseEl 
+   * @returns {HTMLElement|null}
+   */
+  static findNativeCopyButton(responseEl) {
+    // 1. Try finding by icon first
+    const copyIcon = responseEl.querySelector(this.SELECTORS.NATIVE_COPY_ICON);
+    if (copyIcon) {
+      const btn = copyIcon.closest('button');
+      if (btn) return btn;
+    }
+    // 2. Fallback: check all buttons for aria-label or title (English & Vietnamese)
+    const buttons = responseEl.querySelectorAll('button');
+    for (const btn of buttons) {
+      const label = (btn.getAttribute('aria-label') || btn.getAttribute('title') || '').toLowerCase();
+      if (label.includes('copy') || label.includes('chép') || label.includes('sao')) {
+        return btn;
+      }
+    }
+    return null;
+  }
 
   /**
    * Helper promise to sleep.
@@ -584,12 +607,26 @@ const ContentCoordinator = {
   selectedChats: new Map(),
   isDeleting: false,
 
+  // State for bulk GitHub repository imports
+  importQueue: [],
+  isImportingMultiple: false,
+  importTotalCount: 0,
+  isReopeningDialog: false,
+
   // Inject sub-toolbar above conversation list
   injectSidebarToolbar() {
-    if (document.querySelector('.gemini-qol-sidebar-toolbar')) return;
-
     const list = document.querySelector(GeminiAutomator.SELECTORS.SIDEBAR_LIST);
     if (!list) return;
+
+    const existingToolbar = document.querySelector('.gemini-qol-sidebar-toolbar');
+    
+    // If toolbar exists, check if it is right before the current list (e.g. list recreated)
+    if (existingToolbar) {
+      if (existingToolbar.nextElementSibling === list) {
+        return; // Already in correct position
+      }
+      existingToolbar.remove(); // Misplaced, remove it to re-inject properly
+    }
 
     const toolbar = document.createElement('div');
     toolbar.className = 'gemini-qol-sidebar-toolbar';
@@ -673,10 +710,8 @@ const ContentCoordinator = {
   injectMarkdownCopyButton(responseEl) {
     if (responseEl.querySelector('.qol-copy-markdown-btn')) return;
 
-    // Locate the native copy button via its icon
-    const copyIcon = responseEl.querySelector(GeminiAutomator.SELECTORS.NATIVE_COPY_ICON);
-    const nativeCopyBtn = copyIcon ? copyIcon.closest('button') : null;
-
+    // Locate the native copy button using the robust helper
+    const nativeCopyBtn = GeminiAutomator.findNativeCopyButton(responseEl);
     if (!nativeCopyBtn) return; 
 
     // Find the main buttons flexbox container
@@ -957,6 +992,17 @@ const ContentCoordinator = {
     observer.observe(document.body, { childList: true, subtree: true });
   },
 
+  scanTimeout: null,
+
+  scheduleScan() {
+    if (this.scanTimeout) {
+      clearTimeout(this.scanTimeout);
+    }
+    this.scanTimeout = setTimeout(() => {
+      this.scanAndInject();
+    }, 100);
+  },
+
   // Scan and inject
   scanAndInject() {
     this.injectSidebarToolbar();
@@ -969,6 +1015,285 @@ const ContentCoordinator = {
 
     if (this.quotaData) {
       QuotaMonitor.updateSidebarQuotaUI(this.quotaData);
+    }
+
+    this.scanAndInjectImportDialog();
+  },
+
+  // Parse multiple URLs from input text
+  parseUrls(text) {
+    if (!text) return [];
+    // Match any URL containing github.com
+    const regex = /https?:\/\/github\.com\/[^\s,;]+/g;
+    const matches = text.match(regex) || [];
+    // Deduplicate and clean URLs
+    return [...new Set(matches.map(url => url.replace(/[.,;]$/, '').trim()))];
+  },
+
+  // Scan and enhance the import dialog for bulk importing
+  scanAndInjectImportDialog() {
+    const dialog = document.querySelector('code-import-dialog');
+    if (!dialog) return;
+
+    const input = dialog.querySelector('[data-test-id="repo-url-input"]');
+    if (!input || input.classList.contains('qol-monitored')) return;
+
+    input.classList.add('qol-monitored');
+    
+    // Status/progress message container
+    const container = dialog.querySelector('.repo-url-input-container');
+    if (!container) return;
+
+    let statusDiv = dialog.querySelector('.qol-import-status');
+    if (!statusDiv) {
+      statusDiv = document.createElement('div');
+      statusDiv.className = 'qol-import-status';
+      statusDiv.style.cssText = 'font-size: 12px; margin-top: 10px; font-family: "Google Sans", sans-serif; min-height: 20px; line-height: 1.5; font-weight: 500;';
+      container.appendChild(statusDiv);
+    }
+
+    // Custom submit button for multiple repos
+    const nativeSubmitBtn = dialog.querySelector('[data-test-id="import-repository-button"]');
+    if (!nativeSubmitBtn) return;
+
+    let customSubmitBtn = dialog.querySelector('.qol-custom-import-btn');
+    if (!customSubmitBtn) {
+      customSubmitBtn = document.createElement('button');
+      customSubmitBtn.className = nativeSubmitBtn.className + ' qol-custom-import-btn';
+      customSubmitBtn.style.display = 'none';
+      customSubmitBtn.innerHTML = `<span class="mat-mdc-button-persistent-ripple mdc-button__ripple"></span><span class="mdc-button__label">Nhập tất cả</span><span class="mat-focus-indicator"></span>`;
+      nativeSubmitBtn.parentNode.insertBefore(customSubmitBtn, nativeSubmitBtn.nextSibling);
+
+      customSubmitBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const urls = this.parseUrls(input.value);
+        if (urls.length > 1) {
+          this.startMultipleImports(urls);
+        }
+      });
+    }
+
+    // Monitor input value changes
+    const checkValue = () => {
+      // If we are currently importing multiple, don't show the custom submit button/status
+      if (this.isImportingMultiple) return;
+
+      const urls = this.parseUrls(input.value);
+      if (urls.length > 1) {
+        nativeSubmitBtn.style.display = 'none';
+        customSubmitBtn.style.display = 'inline-flex';
+        statusDiv.textContent = `Phát hiện ${urls.length} kho lưu trữ. Extension sẽ tự động nhập lần lượt.`;
+        statusDiv.style.color = '#5b96ee';
+      } else {
+        nativeSubmitBtn.style.display = 'inline-flex';
+        customSubmitBtn.style.display = 'none';
+        statusDiv.textContent = '';
+      }
+    };
+
+    input.addEventListener('input', checkValue);
+    input.addEventListener('change', checkValue);
+
+    // Initial check (in case user opened it with content already filled)
+    checkValue();
+
+    // If we are currently active in multiple imports process:
+    if (this.isImportingMultiple && this.importQueue.length > 0) {
+      this.processNextImport(dialog, input, nativeSubmitBtn, statusDiv);
+    }
+  },
+
+  // Start sequential bulk import
+  startMultipleImports(urls) {
+    this.importQueue = urls;
+    this.importTotalCount = urls.length;
+    this.isImportingMultiple = true;
+
+    const dialog = document.querySelector('code-import-dialog');
+    const input = dialog ? dialog.querySelector('[data-test-id="repo-url-input"]') : null;
+    const nativeSubmitBtn = dialog ? dialog.querySelector('[data-test-id="import-repository-button"]') : null;
+    const statusDiv = dialog ? dialog.querySelector('.qol-import-status') : null;
+
+    if (dialog && input && nativeSubmitBtn && statusDiv) {
+      this.processNextImport(dialog, input, nativeSubmitBtn, statusDiv);
+    }
+  },
+
+  // Perform next import in queue
+  async processNextImport(dialog, input, nativeSubmitBtn, statusDiv) {
+    if (this.importQueue.length === 0) {
+      this.isImportingMultiple = false;
+      if (statusDiv) {
+        statusDiv.textContent = 'Hoàn thành nhập tất cả kho lưu trữ!';
+        statusDiv.style.color = '#4caf50';
+      }
+      return;
+    }
+
+    const currentUrl = this.importQueue.shift();
+    const currentIndex = this.importTotalCount - this.importQueue.length;
+    const baseStatus = `Đang nhập (${currentIndex}/${this.importTotalCount}): ${this.getRepoNameFromUrl(currentUrl)}`;
+
+    // Update status text to pending validation
+    if (statusDiv) {
+      statusDiv.textContent = `${baseStatus} (Đang xác thực URL)...`;
+      statusDiv.style.color = '#ff9800';
+    }
+
+    // Hide custom button to prevent double-clicks
+    const customSubmitBtn = dialog.querySelector('.qol-custom-import-btn');
+    if (customSubmitBtn) customSubmitBtn.style.display = 'none';
+
+    // Inject value and trigger Angular events (simulate user focus/input/blur)
+    input.focus();
+    input.value = currentUrl;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.blur();
+
+    // Wait for button to be enabled (Angular validation checks)
+    let isReady = false;
+    for (let i = 0; i < 25; i++) { // Max 5 seconds
+      const currentDialog = document.querySelector('code-import-dialog');
+      if (!currentDialog) break;
+
+      const btn = currentDialog.querySelector('[data-test-id="import-repository-button"]');
+      if (btn && !btn.disabled && !btn.hasAttribute('disabled')) {
+        isReady = true;
+        break;
+      }
+      await GeminiAutomator.wait(200);
+    }
+
+    // Update status to submitting
+    if (statusDiv) {
+      statusDiv.textContent = `${baseStatus} (Đang bấm nhập)...`;
+    }
+
+    // Repeatedly attempt submission until dialog closes
+    for (let i = 0; i < 5; i++) {
+      const activeDialog = document.querySelector('code-import-dialog');
+      if (!activeDialog) break; // Dialog closed, import succeeded!
+
+      const btn = activeDialog.querySelector('[data-test-id="import-repository-button"]');
+      if (btn && !btn.disabled && !btn.hasAttribute('disabled')) {
+        // Dispatch MouseEvent click
+        const clickEvent = new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window
+        });
+        btn.dispatchEvent(clickEvent);
+        
+        try {
+          btn.click();
+        } catch (e) {}
+
+        // Dispatch form submit
+        const form = activeDialog.querySelector('form');
+        if (form) {
+          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        }
+      }
+      await GeminiAutomator.wait(500);
+    }
+  },
+
+  // Extract repo org/name from GitHub URL
+  getRepoNameFromUrl(url) {
+    try {
+      const parts = url.split('/');
+      if (parts.length >= 5) {
+        return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+      }
+      return url;
+    } catch (e) {
+      return url;
+    }
+  },
+
+  // Automate reopening the dialog
+  async scheduleReopenDialog() {
+    // Wait 1.8 seconds to allow the previous request to finalize in backend/UI
+    await GeminiAutomator.wait(1800);
+
+    if (!this.isImportingMultiple || this.importQueue.length === 0) {
+      this.isReopeningDialog = false;
+      return;
+    }
+
+    try {
+      // Find the tools button
+      const toolsBtn = document.querySelector('gem-icon-button[arialabel*="tải lên" i], gem-icon-button[aria-label*="tải lên" i], gem-icon-button[arialabel*="công cụ" i], gem-icon-button[aria-label*="công cụ" i], gem-icon-button[arialabel*="Upload" i], gem-icon-button[aria-label*="Upload" i]');
+      if (!toolsBtn) throw new Error('Tools button not found');
+      toolsBtn.click();
+
+      // Wait for menu overlay
+      await GeminiAutomator.wait(350);
+
+      // Check if import button is visible
+      const findImportBtn = () => {
+        let btn = document.querySelector('[data-test-id="import-hub-settings-button"], [routerlink="import"]');
+        if (btn) return btn;
+        
+        const items = document.querySelectorAll('.mat-mdc-menu-item, [role="menuitem"]');
+        for (const item of items) {
+          const txt = item.textContent.toLowerCase();
+          if (txt.includes('nhập bộ nhớ') || txt.includes('nhập mã') || txt.includes('import code') || txt.includes('import memory')) {
+            return item;
+          }
+        }
+        return null;
+      };
+
+      const findUploadSubmenuTrigger = () => {
+        const triggers = document.querySelectorAll('.mat-mdc-menu-item-submenu-trigger, .mat-mdc-menu-trigger, [aria-haspopup="menu"]');
+        for (const trigger of triggers) {
+          const txt = trigger.textContent.toLowerCase();
+          if (txt.includes('tải lên') || txt.includes('upload')) {
+            return trigger;
+          }
+        }
+        return null;
+      };
+
+      let importBtn = findImportBtn();
+      
+      // Step 1: Try targeting the specific "tải lên" / "upload" submenu trigger first
+      if (!importBtn) {
+        const uploadTrigger = findUploadSubmenuTrigger();
+        if (uploadTrigger) {
+          uploadTrigger.click();
+          await GeminiAutomator.wait(300);
+          importBtn = findImportBtn();
+        }
+      }
+
+      // Step 2: Fallback to other triggers if still not found
+      if (!importBtn) {
+        // Find all submenu triggers and click them to explore submenus
+        const triggers = document.querySelectorAll('.mat-mdc-menu-item-submenu-trigger, .mat-mdc-menu-trigger, [aria-haspopup="menu"], [data-test-id="more-tools-button"]');
+        for (const trigger of triggers) {
+          trigger.click();
+          await GeminiAutomator.wait(250);
+          importBtn = findImportBtn();
+          if (importBtn) {
+            break;
+          }
+        }
+      }
+
+      if (!importBtn) throw new Error('Import button not found in menu after exploring submenus');
+      importBtn.click();
+    } catch (err) {
+      console.error('Failed to reopen import dialog automatically:', err);
+      // Reset state on failure so the user isn't locked out of manually using it
+      this.isImportingMultiple = false;
+      this.importQueue = [];
+    } finally {
+      this.isReopeningDialog = false;
     }
   },
 
@@ -1026,37 +1351,65 @@ const ContentCoordinator = {
       }
     });
 
-    const observer = new MutationObserver((mutations) => {
-      let shouldScan = false;
-      for (const mutation of mutations) {
-        // Skip mutations from our own elements to prevent loop
-        let isOurs = false;
-        mutation.addedNodes.forEach(node => {
-          if (node.nodeType === Node.ELEMENT_NODE && (
-            node.id === 'qol-quota-iframe' ||
-            node.classList.contains('qol-quota-expanded') ||
-            node.classList.contains('qol-quota-collapsed') ||
-            node.classList.contains('gemini-qol-checkbox-container') ||
-            node.classList.contains('gemini-qol-sidebar-toolbar') ||
-            node.classList.contains('qol-copy-markdown-btn')
-          )) {
-            isOurs = true;
-          }
-        });
-        if (isOurs) continue;
+    // Hook SPA client-side navigation
+    window.addEventListener('popstate', () => this.scheduleScan());
+    
+    // Intercept pushState & replaceState
+    const originalPushState = history.pushState;
+    history.pushState = function(...args) {
+      originalPushState.apply(this, args);
+      ContentCoordinator.scheduleScan();
+    };
+    const originalReplaceState = history.replaceState;
+    history.replaceState = function(...args) {
+      originalReplaceState.apply(this, args);
+      ContentCoordinator.scheduleScan();
+    };
 
-        if (mutation.addedNodes.length > 0) {
-          shouldScan = true;
-          break;
+    // Periodic safety polling (every 1.5 seconds) to handle missed mutations or async rendering glitches
+    setInterval(() => this.scanAndInject(), 1500);
+
+    // Periodic check to reopen the import dialog if we are in bulk import mode and it gets closed
+    setInterval(() => {
+      if (this.isImportingMultiple && this.importQueue.length > 0 && !this.isReopeningDialog) {
+        const dialog = document.querySelector('code-import-dialog');
+        if (!dialog) {
+          this.isReopeningDialog = true;
+          this.scheduleReopenDialog();
         }
       }
+    }, 500);
+
+    // Setup MutationObserver without disconnecting/reconnecting
+    const observer = new MutationObserver((mutations) => {
+      let shouldScan = false;
+
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType !== Node.ELEMENT_NODE) continue;
+
+          // Check if this node is our own injected element or is a child of our own elements
+          const isOurs = !!(node.closest && (
+            node.closest('.gemini-qol-checkbox-container') ||
+            node.closest('.gemini-qol-sidebar-toolbar') ||
+            node.closest('.qol-copy-markdown-btn') ||
+            node.closest('.qol-quota-expanded') ||
+            node.closest('.qol-quota-collapsed') ||
+            node.closest('.qol-import-status') ||
+            node.closest('.qol-custom-import-btn') ||
+            node.closest('#qol-quota-iframe')
+          ));
+
+          if (!isOurs) {
+            shouldScan = true;
+            break;
+          }
+        }
+        if (shouldScan) break;
+      }
+
       if (shouldScan) {
-        observer.disconnect();
-        this.scanAndInject();
-        observer.observe(document.body, {
-          childList: true,
-          subtree: true
-        });
+        this.scheduleScan();
       }
     });
 
