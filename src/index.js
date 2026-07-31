@@ -669,7 +669,7 @@ export const ContentCoordinator = {
   },
 
   async scheduleReopenDialog() {
-    await GeminiAutomator.wait(1800);
+    await GeminiAutomator.waitForElementToDisappear('code-import-dialog, .cdk-overlay-backdrop', 2000);
 
     if (!this.isImportingMultiple || this.importQueue.length === 0) {
       this.isReopeningDialog = false;
@@ -680,8 +680,6 @@ export const ContentCoordinator = {
       const toolsBtn = document.querySelector('gem-icon-button[arialabel*="tải lên" i], gem-icon-button[aria-label*="tải lên" i], gem-icon-button[arialabel*="công cụ" i], gem-icon-button[aria-label*="công cụ" i], gem-icon-button[arialabel*="Upload" i], gem-icon-button[aria-label*="Upload" i]');
       if (!toolsBtn) throw new Error('Tools button not found');
       toolsBtn.click();
-
-      await GeminiAutomator.wait(350);
 
       const findImportBtn = () => {
         let btn = document.querySelector('[data-test-id="import-hub-settings-button"], [routerlink="import"]');
@@ -708,14 +706,13 @@ export const ContentCoordinator = {
         return null;
       };
 
-      let importBtn = findImportBtn();
+      let importBtn = await GeminiAutomator.waitForElement(() => findImportBtn() || findUploadSubmenuTrigger(), 1000, document.body);
       
-      if (!importBtn) {
+      if (importBtn && !findImportBtn()) {
         const uploadTrigger = findUploadSubmenuTrigger();
         if (uploadTrigger) {
           uploadTrigger.click();
-          await GeminiAutomator.wait(300);
-          importBtn = findImportBtn();
+          importBtn = await GeminiAutomator.waitForElement(() => findImportBtn(), 1000, document.body);
         }
       }
 
@@ -723,8 +720,7 @@ export const ContentCoordinator = {
         const triggers = document.querySelectorAll('.mat-mdc-menu-item-submenu-trigger, .mat-mdc-menu-trigger, [aria-haspopup="menu"], [data-test-id="more-tools-button"]');
         for (const trigger of triggers) {
           trigger.click();
-          await GeminiAutomator.wait(250);
-          importBtn = findImportBtn();
+          importBtn = await GeminiAutomator.waitForElement(() => findImportBtn(), 600, document.body);
           if (importBtn) {
             break;
           }

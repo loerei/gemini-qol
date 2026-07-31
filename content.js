@@ -1305,7 +1305,7 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
       return url;
     },
     async scheduleReopenDialog() {
-      await GeminiAutomator.wait(1800);
+      await GeminiAutomator.waitForElementToDisappear("code-import-dialog, .cdk-overlay-backdrop", 2e3);
       if (!this.isImportingMultiple || this.importQueue.length === 0) {
         this.isReopeningDialog = false;
         return;
@@ -1314,7 +1314,6 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
         const toolsBtn = document.querySelector('gem-icon-button[arialabel*="t\u1EA3i l\xEAn" i], gem-icon-button[aria-label*="t\u1EA3i l\xEAn" i], gem-icon-button[arialabel*="c\xF4ng c\u1EE5" i], gem-icon-button[aria-label*="c\xF4ng c\u1EE5" i], gem-icon-button[arialabel*="Upload" i], gem-icon-button[aria-label*="Upload" i]');
         if (!toolsBtn) throw new Error("Tools button not found");
         toolsBtn.click();
-        await GeminiAutomator.wait(350);
         const findImportBtn = () => {
           let btn = document.querySelector('[data-test-id="import-hub-settings-button"], [routerlink="import"]');
           if (btn) return btn;
@@ -1337,21 +1336,19 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
           }
           return null;
         };
-        let importBtn = findImportBtn();
-        if (!importBtn) {
+        let importBtn = await GeminiAutomator.waitForElement(() => findImportBtn() || findUploadSubmenuTrigger(), 1e3, document.body);
+        if (importBtn && !findImportBtn()) {
           const uploadTrigger = findUploadSubmenuTrigger();
           if (uploadTrigger) {
             uploadTrigger.click();
-            await GeminiAutomator.wait(300);
-            importBtn = findImportBtn();
+            importBtn = await GeminiAutomator.waitForElement(() => findImportBtn(), 1e3, document.body);
           }
         }
         if (!importBtn) {
           const triggers = document.querySelectorAll('.mat-mdc-menu-item-submenu-trigger, .mat-mdc-menu-trigger, [aria-haspopup="menu"], [data-test-id="more-tools-button"]');
           for (const trigger of triggers) {
             trigger.click();
-            await GeminiAutomator.wait(250);
-            importBtn = findImportBtn();
+            importBtn = await GeminiAutomator.waitForElement(() => findImportBtn(), 600, document.body);
             if (importBtn) {
               break;
             }
