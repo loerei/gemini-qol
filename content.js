@@ -612,7 +612,7 @@ ${childrenMarkdown}
       }
       const startTime = Date.now();
       item.classList.add("qol-deleting");
-      item.setAttribute("data-qol-status", "deleting");
+      item.dataset.qolStatus = "deleting";
       item.style.pointerEvents = "none";
       item.style.opacity = "0.6";
       item.style.transition = "opacity 0.2s ease, max-height 0.2s ease";
@@ -642,12 +642,12 @@ ${childrenMarkdown}
         await this.waitForElementToDisappear(".cdk-overlay-container mat-dialog-container, .cdk-overlay-backdrop", 1500);
         item.style.display = "none";
         item.classList.remove("qol-deleting");
-        item.setAttribute("data-qol-status", "deleted");
+        item.dataset.qolStatus = "deleted";
         item.dataset.qolDeleted = "true";
       } catch (err) {
         Logger.error("Automator", `Deletion failed for ${chatId}: ${err.message}`);
         item.classList.remove("qol-deleting");
-        item.setAttribute("data-qol-status", "injected");
+        item.dataset.qolStatus = "injected";
         item.style.pointerEvents = "";
         item.style.opacity = "";
         item.style.display = "";
