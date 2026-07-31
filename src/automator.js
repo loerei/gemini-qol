@@ -31,7 +31,9 @@ export class GeminiAutomator {
 
     try {
       if (typeof targetEl.focus === 'function') targetEl.focus();
-    } catch (e) {}
+    } catch (e) {
+      /* ignore focus error */
+    }
 
     const pointerDownOpts = { bubbles: true, cancelable: true, view: window, button: 0, buttons: 1, pointerId: 1, pointerType: 'mouse', isPrimary: true };
     const mouseDownOpts = { bubbles: true, cancelable: true, view: window, button: 0, buttons: 1 };
@@ -44,7 +46,9 @@ export class GeminiAutomator {
       targetEl.dispatchEvent(new PointerEvent('pointerup', pointerUpOpts));
       targetEl.dispatchEvent(new MouseEvent('mouseup', mouseUpOpts));
       targetEl.click();
-    } catch (e) {}
+    } catch (e) {
+      /* ignore synthetic event error */
+    }
   }
 
   /**

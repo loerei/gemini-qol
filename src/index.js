@@ -620,18 +620,12 @@ export const ContentCoordinator = {
     input.dispatchEvent(new Event('change', { bubbles: true }));
     input.blur();
 
-    let isReady = false;
-    for (let i = 0; i < 25; i++) {
+    await GeminiAutomator.waitForElement(() => {
       const currentDialog = document.querySelector('code-import-dialog');
-      if (!currentDialog) break;
-
+      if (!currentDialog) return null;
       const btn = currentDialog.querySelector('[data-test-id="import-repository-button"]');
-      if (btn && !btn.disabled && !btn.hasAttribute('disabled')) {
-        isReady = true;
-        break;
-      }
-      await GeminiAutomator.wait(200);
-    }
+      return (btn && !btn.disabled && !btn.hasAttribute('disabled')) ? btn : null;
+    }, 5000, dialog);
 
     if (statusDiv) {
       statusDiv.textContent = `${baseStatus} (Đang bấm nhập)...`;
@@ -652,7 +646,9 @@ export const ContentCoordinator = {
         
         try {
           btn.click();
-        } catch (e) {}
+        } catch (e) {
+          /* ignore synthetic click error */
+        }
 
         const form = activeDialog.querySelector('form');
         if (form) {
@@ -774,7 +770,6 @@ export const ContentCoordinator = {
     window.addEventListener('beforeunload', (e) => {
       if (this.isDeleting) {
         e.preventDefault();
-        e.returnValue = '';
       }
     });
 

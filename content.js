@@ -1269,17 +1269,12 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
       input.blur();
-      let isReady = false;
-      for (let i = 0; i < 25; i++) {
+      await GeminiAutomator.waitForElement(() => {
         const currentDialog = document.querySelector("code-import-dialog");
-        if (!currentDialog) break;
+        if (!currentDialog) return null;
         const btn = currentDialog.querySelector('[data-test-id="import-repository-button"]');
-        if (btn && !btn.disabled && !btn.hasAttribute("disabled")) {
-          isReady = true;
-          break;
-        }
-        await GeminiAutomator.wait(200);
-      }
+        return btn && !btn.disabled && !btn.hasAttribute("disabled") ? btn : null;
+      }, 5e3, dialog);
       if (statusDiv) {
         statusDiv.textContent = `${baseStatus} (\u0110ang b\u1EA5m nh\u1EADp)...`;
       }
@@ -1402,7 +1397,6 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
       window.addEventListener("beforeunload", (e) => {
         if (this.isDeleting) {
           e.preventDefault();
-          e.returnValue = "";
         }
       });
       setInterval(() => this.refreshQuota(), 12e4);
