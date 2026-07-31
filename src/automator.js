@@ -48,23 +48,13 @@ export class GeminiAutomator {
   }
 
   /**
-   * Immediate-Evaluating Flexible Promise Waiter for DOM Elements
+   * Generic Internal DOM Condition Waiter (DRY helper to eliminate code duplication)
    */
-  static waitForElement(matcherOrSelector, timeoutMs = 1500, targetContainer = null) {
+  static _waitForCondition(conditionFn, timeoutMs = 1500, targetContainer = null) {
     return new Promise((resolve) => {
       const container = targetContainer || document.body;
-      const check = () => {
-        if (typeof matcherOrSelector === 'function') {
-          try { return matcherOrSelector(container); } catch (e) { return null; }
-        }
-        if (typeof matcherOrSelector === 'string') {
-          return container.querySelector(matcherOrSelector) || document.querySelector(matcherOrSelector);
-        }
-        return null;
-      };
-
-      const existing = check();
-      if (existing) return resolve(existing);
+      const initial = conditionFn(container);
+      if (initial !== null && initial !== false) return resolve(initial);
 
       let observer = null;
       let timer = null;
@@ -75,10 +65,10 @@ export class GeminiAutomator {
       };
 
       observer = new MutationObserver(() => {
-        const found = check();
-        if (found) {
+        const res = conditionFn(container);
+        if (res !== null && res !== false) {
           cleanup();
-          resolve(found);
+          resolve(res);
         }
       });
 
@@ -90,55 +80,42 @@ export class GeminiAutomator {
 
       timer = setTimeout(() => {
         cleanup();
-        resolve(check());
+        resolve(conditionFn(container));
       }, timeoutMs);
     });
+  }
+
+  /**
+   * Immediate-Evaluating Flexible Promise Waiter for DOM Elements
+   */
+  static waitForElement(matcherOrSelector, timeoutMs = 1500, targetContainer = null) {
+    const resolveMatcher = (container) => {
+      if (typeof matcherOrSelector === 'function') {
+        try { return matcherOrSelector(container); } catch (e) { return null; }
+      }
+      if (typeof matcherOrSelector === 'string') {
+        return container.querySelector(matcherOrSelector) || document.querySelector(matcherOrSelector);
+      }
+      return null;
+    };
+    return GeminiAutomator._waitForCondition(resolveMatcher, timeoutMs, targetContainer);
   }
 
   /**
    * Immediate-Evaluating Flexible Promise Waiter for DOM Element Removal
    */
   static waitForElementToDisappear(matcherOrSelector, timeoutMs = 1500, targetContainer = null) {
-    return new Promise((resolve) => {
-      const container = targetContainer || document.body;
-      const checkExists = () => {
-        if (typeof matcherOrSelector === 'function') {
-          try { return !!matcherOrSelector(container); } catch (e) { return false; }
-        }
-        if (typeof matcherOrSelector === 'string') {
-          return !!(container.querySelector(matcherOrSelector) || document.querySelector(matcherOrSelector));
-        }
-        return false;
-      };
-
-      if (!checkExists()) return resolve(true);
-
-      let observer = null;
-      let timer = null;
-
-      const cleanup = () => {
-        if (observer) { observer.disconnect(); observer = null; }
-        if (timer) { clearTimeout(timer); timer = null; }
-      };
-
-      observer = new MutationObserver(() => {
-        if (!checkExists()) {
-          cleanup();
-          resolve(true);
-        }
-      });
-
-      try {
-        observer.observe(container, { childList: true, subtree: true });
-      } catch (e) {
-        observer.observe(document.body, { childList: true, subtree: true });
+    const resolveMatcher = (container) => {
+      if (typeof matcherOrSelector === 'function') {
+        try { return matcherOrSelector(container) ? null : true; } catch (e) { return true; }
       }
-
-      timer = setTimeout(() => {
-        cleanup();
-        resolve(!checkExists());
-      }, timeoutMs);
-    });
+      if (typeof matcherOrSelector === 'string') {
+        const found = container.querySelector(matcherOrSelector) || document.querySelector(matcherOrSelector);
+        return found ? null : true;
+      }
+      return true;
+    };
+    return GeminiAutomator._waitForCondition(resolveMatcher, timeoutMs, targetContainer);
   }
 
   /**
