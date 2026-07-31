@@ -452,7 +452,7 @@ export const ContentCoordinator = {
         let shouldReopenImport = false;
         for (const m of mutations) {
           for (const node of m.removedNodes) {
-            if (node.nodeType === Node.ELEMENT_NODE && node.querySelector && node.querySelector('code-import-dialog')) {
+            if (node.nodeType === Node.ELEMENT_NODE && node.querySelector?.('code-import-dialog')) {
               shouldReopenImport = true;
             }
           }
@@ -660,15 +660,12 @@ export const ContentCoordinator = {
   },
 
   getRepoNameFromUrl(url) {
-    try {
-      const parts = url.split('/');
-      if (parts.length >= 5) {
-        return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
-      }
-      return url;
-    } catch (e) {
-      return url;
+    if (!url || typeof url !== 'string') return url || '';
+    const parts = url.split('/');
+    if (parts.length >= 5) {
+      return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
     }
+    return url;
   },
 
   async scheduleReopenDialog() {
@@ -761,7 +758,7 @@ export const ContentCoordinator = {
 
     window.addEventListener('message', (e) => {
       if (e.origin !== window.location.origin) return;
-      if (e.data && e.data.type === 'GEMINI_QOL_QUOTA_UPDATE') {
+      if (e.data?.type === 'GEMINI_QOL_QUOTA_UPDATE') {
         this.quotaData = e.data.data;
         QuotaMonitor.updateSidebarQuotaUI(this.quotaData);
       }
