@@ -310,22 +310,34 @@ export class GeminiAutomator {
 
   /**
    * Query the DOM for the dynamic Delete option button in open menus.
+   * Multi-tier language-agnostic matcher (Attributes -> Icons -> Multi-language Fallback)
    * @returns {HTMLElement|null} The delete menu item element
    */
   static findDeleteMenuButton() {
-    // 1. Target exact Gemini menu item structures first (.gem-menu-item-label, gem-icon[fonticonname="delete"])
-    const exactLabels = document.querySelectorAll('.gem-menu-item-label, gem-icon[fonticonname="delete"], mat-icon[fonticon="delete"]');
-    for (const label of exactLabels) {
-      const text = (label.textContent || '').trim().toLowerCase();
-      const fontIcon = label.dataset.fonticonname || label.dataset.fonticon || label.dataset.matIconName || label.getAttribute('fonticonname') || label.getAttribute('fonticon');
-      
-      if (text === 'xoá' || text === 'xóa' || text === 'delete' || fontIcon === 'delete') {
-        const itemBtn = label.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || label;
-        return itemBtn;
-      }
+    // 1. Direct Attribute & Telemetry Key Match (Language Independent)
+    const exact = document.querySelector(
+      '.cdk-overlay-pane [data-test-id="delete-button"], ' +
+      '.mat-mdc-menu-panel [data-test-id="delete-button"], ' +
+      '[role="menu"] [data-test-id="delete-button"], ' +
+      '.cdk-overlay-pane [jslog*="186000"], ' +
+      '.cdk-overlay-pane [value="delete"]'
+    );
+    if (exact) {
+      return exact.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || exact;
     }
 
-    // 2. Check open menu overlays/panels
+    // 2. Icon Identifier Match (fonticon="delete" / fonticonname="delete")
+    const icon = document.querySelector(
+      '.cdk-overlay-pane mat-icon[fonticon="delete"], ' +
+      '.cdk-overlay-pane gem-icon[fonticonname="delete"], ' +
+      '.cdk-overlay-pane [data-mat-icon-name="delete"]'
+    );
+    if (icon) {
+      return icon.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || icon;
+    }
+
+    // 3. Multi-Language Text Match Fallback
+    const deleteKeywords = ['xóa', 'xoá', 'delete', 'supprimer', 'eliminar', 'löschen', '削除', '删除', '삭제'];
     const menuPanels = document.querySelectorAll(
       '.mat-mdc-menu-panel, .mat-menu-panel, [role="menu"], .cdk-overlay-pane, [class*="menu"]'
     );
@@ -336,60 +348,51 @@ export class GeminiAutomator {
       );
       for (const el of candidates) {
         const text = (el.textContent || '').trim().toLowerCase();
-
-        // Icon check inside element
-        const hasDeleteIcon = el.querySelector?.(
-          'mat-icon[fonticon="delete"], mat-icon[data-mat-icon-name="delete"], [data-test-id*="delete"], svg[data-icon="delete"], gem-icon[fonticonname="delete"]'
-        );
-        if (hasDeleteIcon) {
+        if (deleteKeywords.some(kw => text === kw || text.includes(kw))) {
           return el.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || el;
         }
-
-        // Text check ("Xoá", "Xóa", "Delete")
-        if (text === 'xoá' || text === 'xóa' || text === 'delete' || text.includes('xoá') || text.includes('xóa') || text.includes('delete')) {
-          const itemBtn = el.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || el;
-          return itemBtn;
-        }
       }
     }
 
-    // 3. Fallback search across all menu items in DOM
-    const menuButtons = document.querySelectorAll(GeminiAutomator.SELECTORS.MENU_ITEMS);
-    for (const btn of menuButtons) {
-      const hasDeleteIcon = btn.querySelector('mat-icon[fonticon="delete"], mat-icon[data-mat-icon-name="delete"]');
-      if (hasDeleteIcon) {
-        return btn;
-      }
-      const text = btn.textContent.toLowerCase();
-      if (text.includes('xóa') || text.includes('xoá') || text.includes('delete')) {
-        return btn;
-      }
-    }
     return null;
   }
 
   /**
    * Query the DOM for the dynamic Delete confirmation button in popup modal.
-   * Scans containers in reverse order to always target the newest active dialog.
+   * Multi-tier language-agnostic matcher (CDK Focus & Telemetry Key -> Dialog Action Position -> Multi-language Fallback)
    * @returns {HTMLElement|null} The confirm button element
    */
   static findConfirmButton() {
-    // 1. Search inside mat-dialog-actions (starting from newest dialog at bottom)
+    // 1. Angular Focus & Telemetry Key Match (Language Independent)
+    const primaryFocusBtn = document.querySelector(
+      '[role="dialog"] gem-button[cdkfocusinitial], ' +
+      'mat-dialog-container gem-button[cdkfocusinitial], ' +
+      '[role="dialog"] [jslog*="186009"], ' +
+      'mat-dialog-container [jslog*="186009"]'
+    );
+    if (primaryFocusBtn) {
+      return primaryFocusBtn.closest('button, gem-button') || primaryFocusBtn;
+    }
+
+    // 2. Search inside mat-dialog-actions (Primary non-cancel button)
     const dialogActions = document.querySelectorAll('mat-dialog-actions, .mat-mdc-dialog-actions, .mdc-dialog__actions');
+    const cancelKeywords = ['huỷ', 'hủy', 'cancel', 'annuler', 'cancelar', 'abbrechen', 'キャンセル', '取消', '취소'];
+    const deleteKeywords = ['xóa', 'xoá', 'delete', 'confirm', 'supprimer', 'eliminar', 'löschen', '削除', '确定', '확인'];
+
     for (let i = dialogActions.length - 1; i >= 0; i--) {
-      const candidates = dialogActions[i].querySelectorAll('gem-button, button, span.gds-body-m, span');
+      const candidates = dialogActions[i].querySelectorAll('gem-button, button');
       for (const cand of candidates) {
         const text = (cand.textContent || '').trim().toLowerCase();
-        if (text.includes('huỷ') || text.includes('hủy') || text.includes('cancel')) {
+        if (cancelKeywords.some(kw => text.includes(kw))) {
           continue;
         }
-        if (text === 'xoá' || text === 'xóa' || text === 'delete' || text === 'confirm') {
+        if (deleteKeywords.some(kw => text === kw || text.includes(kw))) {
           return cand.closest('button, gem-button') || cand;
         }
       }
     }
 
-    // 2. Search inside open modal / dialog elements (reverse order)
+    // 3. Search inside open modal / dialog elements (reverse order)
     const dialogContainers = document.querySelectorAll(
       'mat-dialog-container, .mat-mdc-dialog-container, [role="dialog"], gmp-dialog, .cdk-overlay-pane, [class*="dialog"]'
     );
@@ -399,19 +402,16 @@ export class GeminiAutomator {
       const buttons = dialog.querySelectorAll('gem-button, button, span.gds-body-m');
       for (const btn of buttons) {
         const text = (btn.textContent || '').trim().toLowerCase();
-        if (text.includes('huỷ') || text.includes('hủy') || text.includes('cancel')) {
+        if (cancelKeywords.some(kw => text.includes(kw))) {
           continue;
         }
-        if (
-          text === 'xóa' || text === 'xoá' || text === 'delete' || text === 'confirm' ||
-          text.includes('xóa') || text.includes('xoá') || text.includes('delete')
-        ) {
+        if (deleteKeywords.some(kw => text === kw || text.includes(kw))) {
           return btn.closest('button, gem-button') || btn;
         }
       }
     }
 
-    // 3. Try legacy and data-test-id selectors
+    // 4. Try legacy and data-test-id selectors
     const testIdBtn = document.querySelector(GeminiAutomator.SELECTORS.CONFIRM_BTN);
     if (testIdBtn) return testIdBtn;
 

@@ -505,18 +505,23 @@ ${childrenMarkdown}
     }
     /**
      * Query the DOM for the dynamic Delete option button in open menus.
+     * Multi-tier language-agnostic matcher (Attributes -> Icons -> Multi-language Fallback)
      * @returns {HTMLElement|null} The delete menu item element
      */
     static findDeleteMenuButton() {
-      const exactLabels = document.querySelectorAll('.gem-menu-item-label, gem-icon[fonticonname="delete"], mat-icon[fonticon="delete"]');
-      for (const label of exactLabels) {
-        const text = (label.textContent || "").trim().toLowerCase();
-        const fontIcon = label.dataset.fonticonname || label.dataset.fonticon || label.dataset.matIconName || label.getAttribute("fonticonname") || label.getAttribute("fonticon");
-        if (text === "xo\xE1" || text === "x\xF3a" || text === "delete" || fontIcon === "delete") {
-          const itemBtn = label.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || label;
-          return itemBtn;
-        }
+      const exact = document.querySelector(
+        '.cdk-overlay-pane [data-test-id="delete-button"], .mat-mdc-menu-panel [data-test-id="delete-button"], [role="menu"] [data-test-id="delete-button"], .cdk-overlay-pane [jslog*="186000"], .cdk-overlay-pane [value="delete"]'
+      );
+      if (exact) {
+        return exact.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || exact;
       }
+      const icon = document.querySelector(
+        '.cdk-overlay-pane mat-icon[fonticon="delete"], .cdk-overlay-pane gem-icon[fonticonname="delete"], .cdk-overlay-pane [data-mat-icon-name="delete"]'
+      );
+      if (icon) {
+        return icon.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || icon;
+      }
+      const deleteKeywords = ["x\xF3a", "xo\xE1", "delete", "supprimer", "eliminar", "l\xF6schen", "\u524A\u9664", "\u5220\u9664", "\uC0AD\uC81C"];
       const menuPanels = document.querySelectorAll(
         '.mat-mdc-menu-panel, .mat-menu-panel, [role="menu"], .cdk-overlay-pane, [class*="menu"]'
       );
@@ -526,46 +531,36 @@ ${childrenMarkdown}
         );
         for (const el of candidates) {
           const text = (el.textContent || "").trim().toLowerCase();
-          const hasDeleteIcon = el.querySelector?.(
-            'mat-icon[fonticon="delete"], mat-icon[data-mat-icon-name="delete"], [data-test-id*="delete"], svg[data-icon="delete"], gem-icon[fonticonname="delete"]'
-          );
-          if (hasDeleteIcon) {
+          if (deleteKeywords.some((kw) => text === kw || text.includes(kw))) {
             return el.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || el;
           }
-          if (text === "xo\xE1" || text === "x\xF3a" || text === "delete" || text.includes("xo\xE1") || text.includes("x\xF3a") || text.includes("delete")) {
-            const itemBtn = el.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || el;
-            return itemBtn;
-          }
-        }
-      }
-      const menuButtons = document.querySelectorAll(_GeminiAutomator.SELECTORS.MENU_ITEMS);
-      for (const btn of menuButtons) {
-        const hasDeleteIcon = btn.querySelector('mat-icon[fonticon="delete"], mat-icon[data-mat-icon-name="delete"]');
-        if (hasDeleteIcon) {
-          return btn;
-        }
-        const text = btn.textContent.toLowerCase();
-        if (text.includes("x\xF3a") || text.includes("xo\xE1") || text.includes("delete")) {
-          return btn;
         }
       }
       return null;
     }
     /**
      * Query the DOM for the dynamic Delete confirmation button in popup modal.
-     * Scans containers in reverse order to always target the newest active dialog.
+     * Multi-tier language-agnostic matcher (CDK Focus & Telemetry Key -> Dialog Action Position -> Multi-language Fallback)
      * @returns {HTMLElement|null} The confirm button element
      */
     static findConfirmButton() {
+      const primaryFocusBtn = document.querySelector(
+        '[role="dialog"] gem-button[cdkfocusinitial], mat-dialog-container gem-button[cdkfocusinitial], [role="dialog"] [jslog*="186009"], mat-dialog-container [jslog*="186009"]'
+      );
+      if (primaryFocusBtn) {
+        return primaryFocusBtn.closest("button, gem-button") || primaryFocusBtn;
+      }
       const dialogActions = document.querySelectorAll("mat-dialog-actions, .mat-mdc-dialog-actions, .mdc-dialog__actions");
+      const cancelKeywords = ["hu\u1EF7", "h\u1EE7y", "cancel", "annuler", "cancelar", "abbrechen", "\u30AD\u30E3\u30F3\u30BB\u30EB", "\u53D6\u6D88", "\uCDE8\uC18C"];
+      const deleteKeywords = ["x\xF3a", "xo\xE1", "delete", "confirm", "supprimer", "eliminar", "l\xF6schen", "\u524A\u9664", "\u786E\u5B9A", "\uD655\uC778"];
       for (let i = dialogActions.length - 1; i >= 0; i--) {
-        const candidates = dialogActions[i].querySelectorAll("gem-button, button, span.gds-body-m, span");
+        const candidates = dialogActions[i].querySelectorAll("gem-button, button");
         for (const cand of candidates) {
           const text = (cand.textContent || "").trim().toLowerCase();
-          if (text.includes("hu\u1EF7") || text.includes("h\u1EE7y") || text.includes("cancel")) {
+          if (cancelKeywords.some((kw) => text.includes(kw))) {
             continue;
           }
-          if (text === "xo\xE1" || text === "x\xF3a" || text === "delete" || text === "confirm") {
+          if (deleteKeywords.some((kw) => text === kw || text.includes(kw))) {
             return cand.closest("button, gem-button") || cand;
           }
         }
@@ -578,10 +573,10 @@ ${childrenMarkdown}
         const buttons = dialog.querySelectorAll("gem-button, button, span.gds-body-m");
         for (const btn of buttons) {
           const text = (btn.textContent || "").trim().toLowerCase();
-          if (text.includes("hu\u1EF7") || text.includes("h\u1EE7y") || text.includes("cancel")) {
+          if (cancelKeywords.some((kw) => text.includes(kw))) {
             continue;
           }
-          if (text === "x\xF3a" || text === "xo\xE1" || text === "delete" || text === "confirm" || text.includes("x\xF3a") || text.includes("xo\xE1") || text.includes("delete")) {
+          if (deleteKeywords.some((kw) => text === kw || text.includes(kw))) {
             return btn.closest("button, gem-button") || btn;
           }
         }
