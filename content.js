@@ -410,7 +410,7 @@ ${childrenMarkdown}
         const a = item.querySelector(_GeminiAutomator.SELECTORS.CHAT_LINK);
         if (a) {
           const href = a.getAttribute("href");
-          if (href && href.includes(chatId)) {
+          if (href?.includes(chatId)) {
             return item;
           }
         }
@@ -511,7 +511,7 @@ ${childrenMarkdown}
       const exactLabels = document.querySelectorAll('.gem-menu-item-label, gem-icon[fonticonname="delete"], mat-icon[fonticon="delete"]');
       for (const label of exactLabels) {
         const text = (label.textContent || "").trim().toLowerCase();
-        const fontIcon = label.getAttribute("fonticonname") || label.getAttribute("fonticon") || label.getAttribute("data-mat-icon-name");
+        const fontIcon = label.dataset.fonticonname || label.dataset.fonticon || label.dataset.matIconName || label.getAttribute("fonticonname") || label.getAttribute("fonticon");
         if (text === "xo\xE1" || text === "x\xF3a" || text === "delete" || fontIcon === "delete") {
           const itemBtn = label.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || label;
           return itemBtn;
@@ -526,7 +526,7 @@ ${childrenMarkdown}
         );
         for (const el of candidates) {
           const text = (el.textContent || "").trim().toLowerCase();
-          const hasDeleteIcon = el.querySelector && el.querySelector(
+          const hasDeleteIcon = el.querySelector?.(
             'mat-icon[fonticon="delete"], mat-icon[data-mat-icon-name="delete"], [data-test-id*="delete"], svg[data-icon="delete"], gem-icon[fonticonname="delete"]'
           );
           if (hasDeleteIcon) {
@@ -816,7 +816,7 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
     },
     // Inject checkbox into conversation item
     injectCheckbox(item) {
-      const status = item.getAttribute("data-qol-status");
+      const status = item.dataset.qolStatus;
       if (status === "injected" || status === "deleting" || status === "deleted" || item.classList.contains("qol-has-checkbox")) return;
       const a = item.querySelector(GeminiAutomator.SELECTORS.CHAT_LINK);
       if (!a) return;
@@ -826,7 +826,7 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
       const chatId = match[1];
       const container = document.createElement("label");
       container.className = "gemini-qol-checkbox-container";
-      container.setAttribute("data-chat-id", chatId);
+      container.dataset.chatId = chatId;
       container.addEventListener("click", (e) => e.stopPropagation());
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
@@ -847,14 +847,14 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
       container.appendChild(customCheckbox);
       item.insertBefore(container, item.firstChild);
       item.classList.add("qol-has-checkbox");
-      item.setAttribute("data-qol-status", "injected");
+      item.dataset.qolStatus = "injected";
     },
     // Inject "Copy as Markdown" next to native copy button
     injectMarkdownCopyButton(responseEl) {
-      const status = responseEl.getAttribute("data-qol-status");
+      const status = responseEl.dataset.qolStatus;
       if (status === "injected" || status === "no-copy" || responseEl.querySelector(".qol-copy-markdown-btn")) {
         if (responseEl.querySelector(".qol-copy-markdown-btn")) {
-          responseEl.setAttribute("data-qol-status", "injected");
+          responseEl.dataset.qolStatus = "injected";
         }
         return;
       }
@@ -862,11 +862,11 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
       if (!nativeCopyBtn) {
         const isStreaming = !!responseEl.querySelector(".streaming") || responseEl.getAttribute("aria-busy") === "true";
         if (!isStreaming) {
-          responseEl.setAttribute("data-qol-status", "no-copy");
+          responseEl.dataset.qolStatus = "no-copy";
         }
         return;
       }
-      const mainToolbar = nativeCopyBtn.closest(GeminiAutomator.SELECTORS.TOOLBAR_CONTAINER) || nativeCopyBtn.parentElement.parentElement;
+      const mainToolbar = nativeCopyBtn.closest(GeminiAutomator.SELECTORS.TOOLBAR_CONTAINER) || nativeCopyBtn.parentElement?.parentElement;
       if (!mainToolbar) return;
       const btn = document.createElement("button");
       btn.className = nativeCopyBtn.className + " qol-copy-markdown-btn";
@@ -912,7 +912,7 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
         currentChild = currentChild.parentElement;
       }
       mainToolbar.insertBefore(btn, currentChild.nextSibling);
-      responseEl.setAttribute("data-qol-status", "injected");
+      responseEl.dataset.qolStatus = "injected";
     },
     // Toggle selection on all visible checkboxes
     handleToggleAll(e) {
@@ -1021,7 +1021,7 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
       checkboxes.forEach((cb) => {
         const parentContainer = cb.closest(".gemini-qol-checkbox-container");
         if (parentContainer) {
-          const id = parentContainer.getAttribute("data-chat-id");
+          const id = parentContainer.dataset.chatId;
           cb.checked = this.selectedChats.has(id);
           cb.disabled = this.isDeleting;
         }

@@ -71,7 +71,7 @@ export const ContentCoordinator = {
 
   // Inject checkbox into conversation item
   injectCheckbox(item) {
-    const status = item.getAttribute('data-qol-status');
+    const status = item.dataset.qolStatus;
     if (status === 'injected' || status === 'deleting' || status === 'deleted' || item.classList.contains('qol-has-checkbox')) return;
 
     const a = item.querySelector(GeminiAutomator.SELECTORS.CHAT_LINK);
@@ -85,7 +85,7 @@ export const ContentCoordinator = {
 
     const container = document.createElement('label');
     container.className = 'gemini-qol-checkbox-container';
-    container.setAttribute('data-chat-id', chatId);
+    container.dataset.chatId = chatId;
     container.addEventListener('click', (e) => e.stopPropagation());
 
     const checkbox = document.createElement('input');
@@ -112,15 +112,15 @@ export const ContentCoordinator = {
     
     item.insertBefore(container, item.firstChild);
     item.classList.add('qol-has-checkbox');
-    item.setAttribute('data-qol-status', 'injected');
+    item.dataset.qolStatus = 'injected';
   },
 
   // Inject "Copy as Markdown" next to native copy button
   injectMarkdownCopyButton(responseEl) {
-    const status = responseEl.getAttribute('data-qol-status');
+    const status = responseEl.dataset.qolStatus;
     if (status === 'injected' || status === 'no-copy' || responseEl.querySelector('.qol-copy-markdown-btn')) {
       if (responseEl.querySelector('.qol-copy-markdown-btn')) {
-        responseEl.setAttribute('data-qol-status', 'injected');
+        responseEl.dataset.qolStatus = 'injected';
       }
       return;
     }
@@ -129,12 +129,12 @@ export const ContentCoordinator = {
     if (!nativeCopyBtn) {
       const isStreaming = !!responseEl.querySelector('.streaming') || responseEl.getAttribute('aria-busy') === 'true';
       if (!isStreaming) {
-        responseEl.setAttribute('data-qol-status', 'no-copy');
+        responseEl.dataset.qolStatus = 'no-copy';
       }
       return; 
     }
 
-    const mainToolbar = nativeCopyBtn.closest(GeminiAutomator.SELECTORS.TOOLBAR_CONTAINER) || nativeCopyBtn.parentElement.parentElement;
+    const mainToolbar = nativeCopyBtn.closest(GeminiAutomator.SELECTORS.TOOLBAR_CONTAINER) || nativeCopyBtn.parentElement?.parentElement;
     if (!mainToolbar) return;
 
     const btn = document.createElement('button');
@@ -191,7 +191,7 @@ export const ContentCoordinator = {
     }
 
     mainToolbar.insertBefore(btn, currentChild.nextSibling);
-    responseEl.setAttribute('data-qol-status', 'injected');
+    responseEl.dataset.qolStatus = 'injected';
   },
 
   // Toggle selection on all visible checkboxes
@@ -329,7 +329,7 @@ export const ContentCoordinator = {
     checkboxes.forEach(cb => {
       const parentContainer = cb.closest('.gemini-qol-checkbox-container');
       if (parentContainer) {
-        const id = parentContainer.getAttribute('data-chat-id');
+        const id = parentContainer.dataset.chatId;
         cb.checked = this.selectedChats.has(id);
         cb.disabled = this.isDeleting;
       }

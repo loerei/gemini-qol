@@ -198,7 +198,7 @@ export class GeminiAutomator {
       const a = item.querySelector(GeminiAutomator.SELECTORS.CHAT_LINK);
       if (a) {
         const href = a.getAttribute('href');
-        if (href && href.includes(chatId)) {
+        if (href?.includes(chatId)) {
           return item;
         }
       }
@@ -317,7 +317,7 @@ export class GeminiAutomator {
     const exactLabels = document.querySelectorAll('.gem-menu-item-label, gem-icon[fonticonname="delete"], mat-icon[fonticon="delete"]');
     for (const label of exactLabels) {
       const text = (label.textContent || '').trim().toLowerCase();
-      const fontIcon = label.getAttribute('fonticonname') || label.getAttribute('fonticon') || label.getAttribute('data-mat-icon-name');
+      const fontIcon = label.dataset.fonticonname || label.dataset.fonticon || label.dataset.matIconName || label.getAttribute('fonticonname') || label.getAttribute('fonticon');
       
       if (text === 'xoá' || text === 'xóa' || text === 'delete' || fontIcon === 'delete') {
         const itemBtn = label.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || label;
@@ -338,7 +338,7 @@ export class GeminiAutomator {
         const text = (el.textContent || '').trim().toLowerCase();
 
         // Icon check inside element
-        const hasDeleteIcon = el.querySelector && el.querySelector(
+        const hasDeleteIcon = el.querySelector?.(
           'mat-icon[fonticon="delete"], mat-icon[data-mat-icon-name="delete"], [data-test-id*="delete"], svg[data-icon="delete"], gem-icon[fonticonname="delete"]'
         );
         if (hasDeleteIcon) {
