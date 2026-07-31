@@ -1305,7 +1305,7 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
       if (!url || typeof url !== "string") return url || "";
       const parts = url.split("/");
       if (parts.length >= 5) {
-        return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+        return `${parts.at(-2)}/${parts.at(-1)}`;
       }
       return url;
     },
