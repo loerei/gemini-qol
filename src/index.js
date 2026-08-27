@@ -115,6 +115,78 @@ export const ContentCoordinator = {
     item.dataset.qolStatus = 'injected';
   },
 
+  // Reusable action helper to copy markdown from a DOM element with streaming guard and feedback state
+  async executeCopyMarkdown(contentEl, btnEl, { clipboardWriter = null, isMenuItem = false } = {}) {
+    if (!contentEl) {
+      Logger.error('Coordinator', 'Cannot copy markdown: content element is null');
+      return false;
+    }
+
+    // Guard against premature copying during streaming/synthesis
+    const isStreaming = !!contentEl.closest?.(GeminiAutomator.SELECTORS.DEEP_RESEARCH_STREAMING) ||
+                        !!contentEl.querySelector?.(GeminiAutomator.SELECTORS.DEEP_RESEARCH_STREAMING) ||
+                        contentEl.getAttribute?.('aria-busy') === 'true' ||
+                        contentEl.classList?.contains('streaming');
+
+    if (isStreaming) {
+      Logger.log('Coordinator', 'Report is currently generating/streaming');
+      if (btnEl) {
+        const tooltip = btnEl.querySelector?.('.qol-tooltip');
+        if (tooltip) {
+          const orig = tooltip.textContent;
+          tooltip.textContent = i18n.t('reportGenerating');
+          setTimeout(() => { tooltip.textContent = orig; }, 2000);
+        }
+      }
+      return false;
+    }
+
+    const rawMd = MarkdownConverter.fromHtml(contentEl);
+    const cleanMd = MarkdownConverter.cleanMarkdown(rawMd);
+
+    try {
+      const writeFn = clipboardWriter || ((text) => navigator.clipboard.writeText(text));
+      await writeFn(cleanMd);
+
+      if (btnEl) {
+        if (btnEl._qolResetTimer) {
+          clearTimeout(btnEl._qolResetTimer);
+        }
+
+        if (!btnEl._qolOriginalHtml) {
+          btnEl._qolOriginalHtml = btnEl.innerHTML;
+        }
+
+        if (isMenuItem) {
+          btnEl.classList.add('copied');
+        } else {
+          btnEl.innerHTML = `
+            <span class="mat-mdc-button-persistent-ripple mdc-icon-button__ripple"></span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span class="qol-tooltip">${i18n.t('copied')}</span>
+            <span class="mat-focus-indicator"></span>
+          `;
+          btnEl.classList.add('copied');
+        }
+
+        btnEl._qolResetTimer = setTimeout(() => {
+          if (btnEl._qolOriginalHtml) {
+            btnEl.innerHTML = btnEl._qolOriginalHtml;
+          }
+          btnEl.classList.remove('copied');
+          btnEl._qolResetTimer = null;
+        }, 2000);
+      }
+
+      return true;
+    } catch (err) {
+      Logger.error('Coordinator', 'Failed to copy Markdown content: ' + (err.message || err));
+      return false;
+    }
+  },
+
   // Inject "Copy as Markdown" next to native copy button
   injectMarkdownCopyButton(responseEl) {
     const status = responseEl.dataset.qolStatus;
@@ -141,6 +213,8 @@ export const ContentCoordinator = {
     btn.className = nativeCopyBtn.className + ' qol-copy-markdown-btn';
     btn.title = i18n.t('copyMd');
     btn.setAttribute('type', 'button');
+    btn.setAttribute('aria-label', i18n.t('copyMd'));
+    btn.setAttribute('tabindex', '0');
     btn.innerHTML = `
       <span class="mat-mdc-button-persistent-ripple mdc-icon-button__ripple"></span>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
@@ -159,30 +233,7 @@ export const ContentCoordinator = {
                         responseEl.querySelector('.message-content') || 
                         responseEl;
 
-      const rawMd = MarkdownConverter.fromHtml(contentEl);
-      const cleanMd = MarkdownConverter.cleanMarkdown(rawMd);
-
-      try {
-        await navigator.clipboard.writeText(cleanMd);
-
-        const originalSvg = btn.innerHTML;
-        btn.innerHTML = `
-          <span class="mat-mdc-button-persistent-ripple mdc-icon-button__ripple"></span>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          <span class="qol-tooltip">${i18n.t('copied')}</span>
-          <span class="mat-focus-indicator"></span>
-        `;
-        btn.classList.add('copied');
-
-        setTimeout(() => {
-          btn.innerHTML = originalSvg;
-          btn.classList.remove('copied');
-        }, 2000);
-      } catch (err) {
-        console.error('Failed to copy Markdown content:', err);
-      }
+      await this.executeCopyMarkdown(contentEl, btn);
     });
 
     let currentChild = nativeCopyBtn;
@@ -192,6 +243,111 @@ export const ContentCoordinator = {
 
     mainToolbar.insertBefore(btn, currentChild.nextSibling);
     responseEl.dataset.qolStatus = 'injected';
+  },
+
+  // Inject 1-click Markdown Copy Button into Deep Research Report Header Toolbar
+  injectDeepResearchToolbarButton() {
+    const toolbars = document.querySelectorAll(GeminiAutomator.SELECTORS.DEEP_RESEARCH_TOOLBAR);
+    if (!toolbars || toolbars.length === 0) return;
+
+    toolbars.forEach(toolbar => {
+      if (toolbar.querySelector('.qol-copy-report-md-btn')) return;
+
+      const btn = document.createElement('button');
+      btn.className = 'qol-copy-markdown-btn qol-copy-report-md-btn';
+      btn.setAttribute('type', 'button');
+      btn.setAttribute('aria-label', i18n.t('copyReportMd'));
+      btn.setAttribute('title', i18n.t('copyReportMd'));
+      btn.setAttribute('tabindex', '0');
+      btn.innerHTML = `
+        <span class="mat-mdc-button-persistent-ripple mdc-icon-button__ripple"></span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
+          <path d="M7 16V8l3 4 3-4v8"/>
+          <path d="M16 8h2a2.5 2.5 0 0 1 2.5 2.5v3a2.5 2.5 0 0 1-2.5 2.5h-2V8z"/>
+        </svg>
+        <span class="qol-tooltip">${i18n.t('copyReportMd')}</span>
+        <span class="mat-focus-indicator"></span>
+      `;
+
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        // Find the active report content panel
+        const container = toolbar.closest('.response-container-content, [class*="response-container"], [class*="panel"]') || document;
+        const contentEl = container.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT) ||
+                          document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT);
+
+        await this.executeCopyMarkdown(contentEl, btn);
+      });
+
+      const refBtn = toolbar.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CREATE_BTN) ||
+                     toolbar.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_EXPORT_BTN) ||
+                     toolbar.firstElementChild;
+
+      if (refBtn) {
+        toolbar.insertBefore(btn, refBtn);
+      } else {
+        toolbar.appendChild(btn);
+      }
+    });
+  },
+
+  // Inject "Copy as Markdown" into "Share & export" CDK Dropdown Menu
+  injectDeepResearchExportMenuItem() {
+    const menus = document.querySelectorAll('.cdk-overlay-pane gem-menu, .cdk-overlay-pane [role="menu"]');
+    if (!menus || menus.length === 0) return;
+
+    menus.forEach(menu => {
+      if (menu.querySelector('.qol-export-md-menu-item')) return;
+
+      const nativeCopyItem = menu.querySelector('[data-test-id="copy-button"]') ||
+                             menu.querySelector('[data-test-id="export-to-docs-button"]') ||
+                             menu.querySelector('[data-test-id="share-button"]');
+
+      if (!nativeCopyItem) return;
+
+      const menuItem = document.createElement('button');
+      menuItem.className = 'qol-export-md-menu-item';
+      menuItem.setAttribute('type', 'button');
+      menuItem.setAttribute('role', 'menuitem');
+      menuItem.setAttribute('tabindex', '0');
+      menuItem.setAttribute('aria-label', i18n.t('copyMdMenu'));
+      menuItem.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 16V8l3 4 3-4v8"/>
+          <path d="M16 8h2a2.5 2.5 0 0 1 2.5 2.5v3a2.5 2.5 0 0 1-2.5 2.5h-2V8z"/>
+        </svg>
+        <span class="menu-item-label">${i18n.t('copyMdMenu')}</span>
+      `;
+
+      const handleAction = async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        const contentEl = document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT);
+        await this.executeCopyMarkdown(contentEl, menuItem, { isMenuItem: true });
+
+        // Programmatically close CDK overlay dropdown
+        const backdrop = document.querySelector('.cdk-overlay-backdrop');
+        if (backdrop) {
+          backdrop.click();
+        }
+      };
+
+      menuItem.addEventListener('click', handleAction);
+      menuItem.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          handleAction(e);
+        }
+      });
+
+      if (nativeCopyItem.nextSibling) {
+        nativeCopyItem.parentNode.insertBefore(menuItem, nativeCopyItem.nextSibling);
+      } else {
+        nativeCopyItem.parentNode.appendChild(menuItem);
+      }
+    });
   },
 
   // Toggle selection on all visible checkboxes
@@ -490,6 +646,9 @@ export const ContentCoordinator = {
 
     const responses = document.querySelectorAll('model-response');
     responses.forEach(res => this.injectMarkdownCopyButton(res));
+
+    this.injectDeepResearchToolbarButton();
+    this.injectDeepResearchExportMenuItem();
 
     if (this.quotaData) {
       QuotaMonitor.updateSidebarQuotaUI(this.quotaData);

@@ -435,3 +435,56 @@ gem-nav-list-item.qol-has-checkbox a {
   display: block;
 }
 
+/* Deep Research Toolbar & Menu Item Styles */
+.qol-copy-report-md-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--gem-sys-color--on-surface-variant, #c4c7c5);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+  margin-right: 4px;
+  position: relative !important;
+}
+
+.qol-copy-report-md-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #5b96ee;
+}
+
+.qol-export-md-menu-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  font-family: 'Google Sans', 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--gem-sys-color--on-surface, #e3e3e3);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s ease;
+  user-select: none;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.qol-export-md-menu-item:hover,
+.qol-export-md-menu-item:focus {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.qol-export-md-menu-item svg {
+  color: var(--gem-sys-color--on-surface-variant, #c4c7c5);
+  flex-shrink: 0;
+}
+
+

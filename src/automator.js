@@ -16,7 +16,12 @@ export class GeminiAutomator {
     CANCEL_BTN: '[data-test-id="cancel-button"] button, [data-test-id="cancel-button"], button[data-test-id="cancel-button"]',
     MENU_ITEMS: '.mat-mdc-menu-item, button[role="menuitem"]',
     NATIVE_COPY_ICON: 'mat-icon[fonticon="copy"], mat-icon[data-mat-icon-name="copy"], mat-icon[fonticon="content_copy"], mat-icon[data-mat-icon-name="content_copy"]',
-    TOOLBAR_CONTAINER: '.actions-container, [role="toolbar"], .response-actions-container, .message-actions, .response-actions'
+    TOOLBAR_CONTAINER: '.actions-container, [role="toolbar"], .response-actions-container, .message-actions, .response-actions',
+    DEEP_RESEARCH_TOOLBAR: 'div.toolbar.has-title > div.action-buttons, .toolbar > .action-buttons',
+    DEEP_RESEARCH_EXPORT_BTN: '[data-test-id="export-menu-button"], .export-menu-button',
+    DEEP_RESEARCH_CONTENT: 'message-content, .markdown.markdown-main-panel, .markdown',
+    DEEP_RESEARCH_CREATE_BTN: 'canvas-create-button, [data-test-id="create-button"]',
+    DEEP_RESEARCH_STREAMING: '[aria-busy="true"], .streaming, mat-progress-spinner'
   };
 
   /**
@@ -26,7 +31,9 @@ export class GeminiAutomator {
   static triggerClick(el) {
     if (!el) return;
 
-    const targetEl = el.closest('button, [role="menuitem"], a, input, gem-button, gmp-menu-item, gem-menu-item, .mat-mdc-menu-item') || el;
+    // Resolve down to the deepest native interactive button if el is a web component wrapper (gem-button, gem-icon-button)
+    const innerNative = el.querySelector?.('button, [role="button"], a, input');
+    const targetEl = innerNative || el.closest('button, [role="menuitem"], a, input, gem-button, gmp-menu-item, gem-menu-item, .mat-mdc-menu-item') || el;
     if (!targetEl || targetEl.disabled || targetEl.getAttribute('aria-disabled') === 'true') return;
 
     try {
@@ -126,15 +133,7 @@ export class GeminiAutomator {
    * Unified Async Overlay & Scroll-Lock Cleanup Helper
    */
   static async cleanupOverlaysAndScrollLocks() {
-    this.dismissDialog();
-    const escapeEvt = new KeyboardEvent('keydown', {
-      key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true, cancelable: true, view: window
-    });
-    (document.activeElement || document.body).dispatchEvent(escapeEvt);
-
-    await this.waitForElementToDisappear('.cdk-overlay-backdrop', 200);
-
-    const hasActiveDialog = document.querySelector('mat-dialog-container, code-import-dialog, .cdk-overlay-pane:not(:empty)');
+    const hasActiveDialog = document.querySelector('mat-dialog-container, code-import-dialog, [role="dialog"]');
     if (!hasActiveDialog) {
       const body = document.body;
       const html = document.documentElement;
@@ -146,12 +145,12 @@ export class GeminiAutomator {
         html.classList.remove('cdk-global-scrollblock');
         html.style.top = ''; html.style.position = ''; html.style.paddingRight = ''; html.style.overflow = '';
       }
-    }
 
-    const orphanedBackdrop = document.querySelector('.cdk-overlay-container > .cdk-overlay-backdrop');
-    const overlayPanes = document.querySelectorAll('.cdk-overlay-container > .cdk-overlay-pane:not(:empty)');
-    if (orphanedBackdrop && overlayPanes.length === 0) {
-      try { orphanedBackdrop.remove(); } catch (e) {}
+      const orphanedBackdrop = document.querySelector('.cdk-overlay-container > .cdk-overlay-backdrop');
+      const overlayPanes = document.querySelectorAll('.cdk-overlay-container > .cdk-overlay-pane:not(:empty)');
+      if (orphanedBackdrop && overlayPanes.length === 0) {
+        try { orphanedBackdrop.remove(); } catch (e) {}
+      }
     }
   }
 
@@ -371,7 +370,7 @@ export class GeminiAutomator {
       'mat-dialog-container [jslog*="186009"]'
     );
     if (primaryFocusBtn) {
-      return primaryFocusBtn.closest('button, gem-button') || primaryFocusBtn;
+      return primaryFocusBtn.querySelector?.('button') || primaryFocusBtn.closest('button') || primaryFocusBtn;
     }
 
     // 2. Search inside mat-dialog-actions (Primary non-cancel button)
@@ -387,7 +386,7 @@ export class GeminiAutomator {
           continue;
         }
         if (deleteKeywords.some(kw => text === kw || text.includes(kw))) {
-          return cand.closest('button, gem-button') || cand;
+          return cand.querySelector?.('button') || cand.closest('button') || cand;
         }
       }
     }
@@ -406,14 +405,16 @@ export class GeminiAutomator {
           continue;
         }
         if (deleteKeywords.some(kw => text === kw || text.includes(kw))) {
-          return btn.closest('button, gem-button') || btn;
+          return btn.querySelector?.('button') || btn.closest('button') || btn;
         }
       }
     }
 
     // 4. Try legacy and data-test-id selectors
     const testIdBtn = document.querySelector(GeminiAutomator.SELECTORS.CONFIRM_BTN);
-    if (testIdBtn) return testIdBtn;
+    if (testIdBtn) {
+      return testIdBtn.querySelector?.('button') || testIdBtn.closest('button') || testIdBtn;
+    }
 
     return null;
   }
@@ -478,8 +479,8 @@ export class GeminiAutomator {
       }
       this.triggerClick(confirmBtn);
 
-      // 4. Wait for modal & backdrop unmount
-      await this.waitForElementToDisappear('.cdk-overlay-container mat-dialog-container, .cdk-overlay-backdrop', 1500);
+      // 4. Wait for modal & backdrop unmount naturally (give sufficient time for backend delete RPC)
+      await this.waitForElementToDisappear('mat-dialog-container, [role="dialog"], .cdk-overlay-backdrop', 3500);
 
       // Success State
       item.style.display = 'none';
@@ -494,9 +495,8 @@ export class GeminiAutomator {
       item.style.pointerEvents = '';
       item.style.opacity = '';
       item.style.display = '';
+      this.dismissDialog();
       throw err;
-    } finally {
-      await GeminiAutomator.cleanupOverlaysAndScrollLocks();
     }
 
     const elapsed = Date.now() - startTime;

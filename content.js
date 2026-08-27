@@ -14,6 +14,9 @@
           copyMd: "Sao ch\xE9p d\u01B0\u1EDBi d\u1EA1ng Markdown",
           copyTooltip: "Sao ch\xE9p Markdown (.md)",
           copied: "\u0110\xE3 ch\xE9p!",
+          copyReportMd: "Sao ch\xE9p b\xE1o c\xE1o Markdown",
+          copyMdMenu: "Sao ch\xE9p d\u01B0\u1EDBi d\u1EA1ng Markdown",
+          reportGenerating: "\u0110ang t\u1ED5ng h\u1EE3p b\xE1o c\xE1o...",
           daily: "Daily:",
           weekly: "Weekly:"
         },
@@ -27,6 +30,9 @@
           copyMd: "Copy as Markdown",
           copyTooltip: "Copy Markdown (.md)",
           copied: "Copied!",
+          copyReportMd: "Copy report as Markdown",
+          copyMdMenu: "Copy as Markdown",
+          reportGenerating: "Synthesizing report...",
           daily: "Daily:",
           weekly: "Weekly:"
         }
@@ -39,22 +45,42 @@
   var MarkdownConverter = class {
     /**
      * Translates a DOM node and its children recursively into clean Markdown text.
+     * Runtime-agnostic: operates seamlessly in browser and Node.js test environments.
      * @param {Node} node - The DOM node to parse
      * @returns {string} The parsed Markdown content
      */
     static fromHtml(node) {
       if (!node) return "";
-      if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent;
+      const TEXT_NODE = typeof Node !== "undefined" ? Node.TEXT_NODE : 3;
+      const ELEMENT_NODE = typeof Node !== "undefined" ? Node.ELEMENT_NODE : 1;
+      if (node.nodeType === TEXT_NODE) {
+        return node.textContent || "";
       }
-      if (node.nodeType !== Node.ELEMENT_NODE) {
+      if (node.nodeType !== ELEMENT_NODE) {
         return "";
       }
-      const tagName = node.tagName.toLowerCase();
-      if (node.classList.contains("qol-copy-markdown-btn") || node.classList.contains("actions-container") || tagName === "button" || tagName === "style" || tagName === "script") {
+      const tagName = (node.tagName || "").toLowerCase();
+      const NOISE_TAGS = [
+        "button",
+        "style",
+        "script",
+        "sources-carousel",
+        "sources-carousel-inline",
+        "source-footnote",
+        "mat-icon",
+        "gem-icon",
+        "gem-menu",
+        "gem-menu-item",
+        "gem-icon-button",
+        "gem-popover"
+      ];
+      if (NOISE_TAGS.includes(tagName) || node.classList?.contains("qol-copy-markdown-btn") || node.classList?.contains("actions-container") || node.classList?.contains("screen-reader-only") || node.classList?.contains("cdk-visually-hidden")) {
         return "";
       }
-      const childrenMarkdown = Array.from(node.childNodes).map((child) => this.fromHtml(child)).join("");
+      if (tagName === "table") {
+        return this._parseTable(node);
+      }
+      const childrenMarkdown = Array.from(node.childNodes || []).map((child) => this.fromHtml(child)).join("");
       switch (tagName) {
         case "p":
           return `
@@ -86,6 +112,18 @@ ${childrenMarkdown.trim()}
 #### ${childrenMarkdown.trim()}
 
 `;
+        case "h5":
+          return `
+
+##### ${childrenMarkdown.trim()}
+
+`;
+        case "h6":
+          return `
+
+###### ${childrenMarkdown.trim()}
+
+`;
         case "strong":
         case "b":
           return `**${childrenMarkdown}**`;
@@ -93,21 +131,39 @@ ${childrenMarkdown.trim()}
         case "i":
           return `*${childrenMarkdown}*`;
         case "code":
-          if (node.closest("pre")) {
+          if (node.closest?.("pre") || node.closest?.("code-block")) {
             return childrenMarkdown;
           }
           return `\`${childrenMarkdown}\``;
-        case "pre":
-          const codeEl = node.querySelector("code");
-          const langClass = codeEl ? Array.from(codeEl.classList).find((c) => c.startsWith("language-")) : "";
+        case "pre": {
+          if (node.closest?.("code-block")) {
+            return node.textContent || "";
+          }
+          const codeEl = node.querySelector?.("code");
+          const langClass = codeEl ? Array.from(codeEl.classList || []).find((c) => c.startsWith("language-")) : "";
           const lang = langClass ? langClass.replace("language-", "") : "";
           return `
 
 \`\`\`${lang}
-${node.textContent.trim()}
+${(node.textContent || "").trim()}
 \`\`\`
 
 `;
+        }
+        case "code-block": {
+          const langSpan = node.querySelector?.('.code-block-decoration span, [class*="code-lang"]');
+          let lang = langSpan ? (langSpan.textContent || "").trim().toLowerCase() : "";
+          if (lang === "\u0111o\u1EA1n m\xE3" || lang === "code") lang = "";
+          const pre = node.querySelector?.("pre");
+          const codeText = pre ? pre.textContent || "" : node.textContent || "";
+          return `
+
+\`\`\`${lang}
+${codeText.trim()}
+\`\`\`
+
+`;
+        }
         case "ul":
           return `
 ${childrenMarkdown}
@@ -116,25 +172,78 @@ ${childrenMarkdown}
           return `
 ${childrenMarkdown}
 `;
-        case "li":
+        case "li": {
           const parent = node.parentElement;
-          if (parent && parent.tagName.toLowerCase() === "ol") {
-            const index = Array.from(parent.children).indexOf(node) + 1;
+          if (parent && (parent.tagName || "").toLowerCase() === "ol") {
+            const index = Array.from(parent.children || []).indexOf(node) + 1;
             return `${index}. ${childrenMarkdown.trim()}
 `;
           }
           return `* ${childrenMarkdown.trim()}
 `;
-        case "a":
-          const href = node.getAttribute("href");
+        }
+        case "blockquote":
+          return `
+
+> ${childrenMarkdown.trim()}
+
+`;
+        case "a": {
+          const href = node.getAttribute?.("href");
           return `[${childrenMarkdown}](${href || ""})`;
+        }
         case "br":
           return "\n";
+        case "hr":
+          return "\n\n---\n\n";
         case "div":
         case "span":
+        case "response-element":
         default:
           return childrenMarkdown;
       }
+    }
+    /**
+     * Helper to parse HTML tables into standard Markdown pipe table format.
+     * @param {HTMLElement} tableNode 
+     * @returns {string} Markdown table
+     */
+    static _parseTable(tableNode) {
+      const sanitizeCell = (cell) => {
+        const text = this.fromHtml(cell).trim();
+        return text.replace(/\n+/g, "<br>").replace(/\|/g, "\\|");
+      };
+      const thead = tableNode.querySelector?.("thead");
+      const tbody = tableNode.querySelector?.("tbody");
+      let headerCells = [];
+      if (thead) {
+        const firstRow = thead.querySelector?.("tr") || thead;
+        headerCells = Array.from(firstRow.children || []).filter((c) => ["th", "td"].includes((c.tagName || "").toLowerCase()));
+      } else {
+        const firstRow = tableNode.querySelector?.("tr");
+        if (firstRow) {
+          headerCells = Array.from(firstRow.children || []).filter((c) => ["th", "td"].includes((c.tagName || "").toLowerCase()));
+        }
+      }
+      let md = "\n\n";
+      if (headerCells.length > 0) {
+        const headers = headerCells.map((c) => sanitizeCell(c));
+        md += `| ${headers.join(" | ")} |
+`;
+        md += `| ${headers.map(() => "---").join(" | ")} |
+`;
+      }
+      const bodyRows = tbody ? Array.from(tbody.querySelectorAll?.("tr") || []) : Array.from(tableNode.querySelectorAll?.("tr") || []).slice(thead ? 0 : headerCells.length > 0 ? 1 : 0);
+      for (const row of bodyRows) {
+        const cells = Array.from(row.children || []).filter((c) => ["td", "th"].includes((c.tagName || "").toLowerCase()));
+        if (cells.length > 0) {
+          const cellTexts = cells.map((c) => sanitizeCell(c));
+          md += `| ${cellTexts.join(" | ")} |
+`;
+        }
+      }
+      return `${md}
+`;
     }
     /**
      * Sanitizes double or redundant carriage returns from generated Markdown
@@ -142,7 +251,7 @@ ${childrenMarkdown}
      * @returns {string} The cleaned Markdown
      */
     static cleanMarkdown(md) {
-      return md.replace(/\n{3,}/g, "\n\n").trim();
+      return (md || "").replace(/\n{3,}/g, "\n\n").trim();
     }
   };
 
@@ -223,7 +332,12 @@ ${childrenMarkdown}
       CANCEL_BTN: '[data-test-id="cancel-button"] button, [data-test-id="cancel-button"], button[data-test-id="cancel-button"]',
       MENU_ITEMS: '.mat-mdc-menu-item, button[role="menuitem"]',
       NATIVE_COPY_ICON: 'mat-icon[fonticon="copy"], mat-icon[data-mat-icon-name="copy"], mat-icon[fonticon="content_copy"], mat-icon[data-mat-icon-name="content_copy"]',
-      TOOLBAR_CONTAINER: '.actions-container, [role="toolbar"], .response-actions-container, .message-actions, .response-actions'
+      TOOLBAR_CONTAINER: '.actions-container, [role="toolbar"], .response-actions-container, .message-actions, .response-actions',
+      DEEP_RESEARCH_TOOLBAR: "div.toolbar.has-title > div.action-buttons, .toolbar > .action-buttons",
+      DEEP_RESEARCH_EXPORT_BTN: '[data-test-id="export-menu-button"], .export-menu-button',
+      DEEP_RESEARCH_CONTENT: "message-content, .markdown.markdown-main-panel, .markdown",
+      DEEP_RESEARCH_CREATE_BTN: 'canvas-create-button, [data-test-id="create-button"]',
+      DEEP_RESEARCH_STREAMING: '[aria-busy="true"], .streaming, mat-progress-spinner'
     };
     /**
      * Helper to fire robust synthetic click events for Angular web components & MDC buttons.
@@ -231,7 +345,8 @@ ${childrenMarkdown}
      */
     static triggerClick(el) {
       if (!el) return;
-      const targetEl = el.closest('button, [role="menuitem"], a, input, gem-button, gmp-menu-item, gem-menu-item, .mat-mdc-menu-item') || el;
+      const innerNative = el.querySelector?.('button, [role="button"], a, input');
+      const targetEl = innerNative || el.closest('button, [role="menuitem"], a, input, gem-button, gmp-menu-item, gem-menu-item, .mat-mdc-menu-item') || el;
       if (!targetEl || targetEl.disabled || targetEl.getAttribute("aria-disabled") === "true") return;
       try {
         if (typeof targetEl.focus === "function") targetEl.focus();
@@ -331,19 +446,7 @@ ${childrenMarkdown}
      * Unified Async Overlay & Scroll-Lock Cleanup Helper
      */
     static async cleanupOverlaysAndScrollLocks() {
-      this.dismissDialog();
-      const escapeEvt = new KeyboardEvent("keydown", {
-        key: "Escape",
-        code: "Escape",
-        keyCode: 27,
-        which: 27,
-        bubbles: true,
-        cancelable: true,
-        view: window
-      });
-      (document.activeElement || document.body).dispatchEvent(escapeEvt);
-      await this.waitForElementToDisappear(".cdk-overlay-backdrop", 200);
-      const hasActiveDialog = document.querySelector("mat-dialog-container, code-import-dialog, .cdk-overlay-pane:not(:empty)");
+      const hasActiveDialog = document.querySelector('mat-dialog-container, code-import-dialog, [role="dialog"]');
       if (!hasActiveDialog) {
         const body = document.body;
         const html = document.documentElement;
@@ -361,13 +464,13 @@ ${childrenMarkdown}
           html.style.paddingRight = "";
           html.style.overflow = "";
         }
-      }
-      const orphanedBackdrop = document.querySelector(".cdk-overlay-container > .cdk-overlay-backdrop");
-      const overlayPanes = document.querySelectorAll(".cdk-overlay-container > .cdk-overlay-pane:not(:empty)");
-      if (orphanedBackdrop && overlayPanes.length === 0) {
-        try {
-          orphanedBackdrop.remove();
-        } catch (e) {
+        const orphanedBackdrop = document.querySelector(".cdk-overlay-container > .cdk-overlay-backdrop");
+        const overlayPanes = document.querySelectorAll(".cdk-overlay-container > .cdk-overlay-pane:not(:empty)");
+        if (orphanedBackdrop && overlayPanes.length === 0) {
+          try {
+            orphanedBackdrop.remove();
+          } catch (e) {
+          }
         }
       }
     }
@@ -548,7 +651,7 @@ ${childrenMarkdown}
         '[role="dialog"] gem-button[cdkfocusinitial], mat-dialog-container gem-button[cdkfocusinitial], [role="dialog"] [jslog*="186009"], mat-dialog-container [jslog*="186009"]'
       );
       if (primaryFocusBtn) {
-        return primaryFocusBtn.closest("button, gem-button") || primaryFocusBtn;
+        return primaryFocusBtn.querySelector?.("button") || primaryFocusBtn.closest("button") || primaryFocusBtn;
       }
       const dialogActions = document.querySelectorAll("mat-dialog-actions, .mat-mdc-dialog-actions, .mdc-dialog__actions");
       const cancelKeywords = ["hu\u1EF7", "h\u1EE7y", "cancel", "annuler", "cancelar", "abbrechen", "\u30AD\u30E3\u30F3\u30BB\u30EB", "\u53D6\u6D88", "\uCDE8\uC18C"];
@@ -561,7 +664,7 @@ ${childrenMarkdown}
             continue;
           }
           if (deleteKeywords.some((kw) => text === kw || text.includes(kw))) {
-            return cand.closest("button, gem-button") || cand;
+            return cand.querySelector?.("button") || cand.closest("button") || cand;
           }
         }
       }
@@ -577,12 +680,14 @@ ${childrenMarkdown}
             continue;
           }
           if (deleteKeywords.some((kw) => text === kw || text.includes(kw))) {
-            return btn.closest("button, gem-button") || btn;
+            return btn.querySelector?.("button") || btn.closest("button") || btn;
           }
         }
       }
       const testIdBtn = document.querySelector(_GeminiAutomator.SELECTORS.CONFIRM_BTN);
-      if (testIdBtn) return testIdBtn;
+      if (testIdBtn) {
+        return testIdBtn.querySelector?.("button") || testIdBtn.closest("button") || testIdBtn;
+      }
       return null;
     }
     /**
@@ -634,7 +739,7 @@ ${childrenMarkdown}
           throw new Error("Timeout waiting for Confirm button in modal dialog");
         }
         this.triggerClick(confirmBtn);
-        await this.waitForElementToDisappear(".cdk-overlay-container mat-dialog-container, .cdk-overlay-backdrop", 1500);
+        await this.waitForElementToDisappear('mat-dialog-container, [role="dialog"], .cdk-overlay-backdrop', 3500);
         item.style.display = "none";
         item.classList.remove("qol-deleting");
         item.dataset.qolStatus = "deleted";
@@ -646,9 +751,8 @@ ${childrenMarkdown}
         item.style.pointerEvents = "";
         item.style.opacity = "";
         item.style.display = "";
+        this.dismissDialog();
         throw err;
-      } finally {
-        await _GeminiAutomator.cleanupOverlaysAndScrollLocks();
       }
       const elapsed = Date.now() - startTime;
       Logger.log("Automator", `Successfully deleted chatId: ${chatId} in ${elapsed}ms`);
@@ -844,6 +948,66 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
       item.classList.add("qol-has-checkbox");
       item.dataset.qolStatus = "injected";
     },
+    // Reusable action helper to copy markdown from a DOM element with streaming guard and feedback state
+    async executeCopyMarkdown(contentEl, btnEl, { clipboardWriter = null, isMenuItem = false } = {}) {
+      if (!contentEl) {
+        Logger.error("Coordinator", "Cannot copy markdown: content element is null");
+        return false;
+      }
+      const isStreaming = !!contentEl.closest?.(GeminiAutomator.SELECTORS.DEEP_RESEARCH_STREAMING) || !!contentEl.querySelector?.(GeminiAutomator.SELECTORS.DEEP_RESEARCH_STREAMING) || contentEl.getAttribute?.("aria-busy") === "true" || contentEl.classList?.contains("streaming");
+      if (isStreaming) {
+        Logger.log("Coordinator", "Report is currently generating/streaming");
+        if (btnEl) {
+          const tooltip = btnEl.querySelector?.(".qol-tooltip");
+          if (tooltip) {
+            const orig = tooltip.textContent;
+            tooltip.textContent = i18n.t("reportGenerating");
+            setTimeout(() => {
+              tooltip.textContent = orig;
+            }, 2e3);
+          }
+        }
+        return false;
+      }
+      const rawMd = MarkdownConverter.fromHtml(contentEl);
+      const cleanMd = MarkdownConverter.cleanMarkdown(rawMd);
+      try {
+        const writeFn = clipboardWriter || ((text) => navigator.clipboard.writeText(text));
+        await writeFn(cleanMd);
+        if (btnEl) {
+          if (btnEl._qolResetTimer) {
+            clearTimeout(btnEl._qolResetTimer);
+          }
+          if (!btnEl._qolOriginalHtml) {
+            btnEl._qolOriginalHtml = btnEl.innerHTML;
+          }
+          if (isMenuItem) {
+            btnEl.classList.add("copied");
+          } else {
+            btnEl.innerHTML = `
+            <span class="mat-mdc-button-persistent-ripple mdc-icon-button__ripple"></span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span class="qol-tooltip">${i18n.t("copied")}</span>
+            <span class="mat-focus-indicator"></span>
+          `;
+            btnEl.classList.add("copied");
+          }
+          btnEl._qolResetTimer = setTimeout(() => {
+            if (btnEl._qolOriginalHtml) {
+              btnEl.innerHTML = btnEl._qolOriginalHtml;
+            }
+            btnEl.classList.remove("copied");
+            btnEl._qolResetTimer = null;
+          }, 2e3);
+        }
+        return true;
+      } catch (err) {
+        Logger.error("Coordinator", "Failed to copy Markdown content: " + (err.message || err));
+        return false;
+      }
+    },
     // Inject "Copy as Markdown" next to native copy button
     injectMarkdownCopyButton(responseEl) {
       const status = responseEl.dataset.qolStatus;
@@ -867,6 +1031,8 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
       btn.className = nativeCopyBtn.className + " qol-copy-markdown-btn";
       btn.title = i18n.t("copyMd");
       btn.setAttribute("type", "button");
+      btn.setAttribute("aria-label", i18n.t("copyMd"));
+      btn.setAttribute("tabindex", "0");
       btn.innerHTML = `
       <span class="mat-mdc-button-persistent-ripple mdc-icon-button__ripple"></span>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
@@ -880,27 +1046,7 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
         e.stopPropagation();
         e.preventDefault();
         const contentEl = responseEl.querySelector("message-content") || responseEl.querySelector(".message-content") || responseEl;
-        const rawMd = MarkdownConverter.fromHtml(contentEl);
-        const cleanMd = MarkdownConverter.cleanMarkdown(rawMd);
-        try {
-          await navigator.clipboard.writeText(cleanMd);
-          const originalSvg = btn.innerHTML;
-          btn.innerHTML = `
-          <span class="mat-mdc-button-persistent-ripple mdc-icon-button__ripple"></span>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          <span class="qol-tooltip">${i18n.t("copied")}</span>
-          <span class="mat-focus-indicator"></span>
-        `;
-          btn.classList.add("copied");
-          setTimeout(() => {
-            btn.innerHTML = originalSvg;
-            btn.classList.remove("copied");
-          }, 2e3);
-        } catch (err) {
-          console.error("Failed to copy Markdown content:", err);
-        }
+        await this.executeCopyMarkdown(contentEl, btn);
       });
       let currentChild = nativeCopyBtn;
       while (currentChild.parentElement && currentChild.parentElement !== mainToolbar) {
@@ -908,6 +1054,86 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
       }
       mainToolbar.insertBefore(btn, currentChild.nextSibling);
       responseEl.dataset.qolStatus = "injected";
+    },
+    // Inject 1-click Markdown Copy Button into Deep Research Report Header Toolbar
+    injectDeepResearchToolbarButton() {
+      const toolbars = document.querySelectorAll(GeminiAutomator.SELECTORS.DEEP_RESEARCH_TOOLBAR);
+      if (!toolbars || toolbars.length === 0) return;
+      toolbars.forEach((toolbar) => {
+        if (toolbar.querySelector(".qol-copy-report-md-btn")) return;
+        const btn = document.createElement("button");
+        btn.className = "qol-copy-markdown-btn qol-copy-report-md-btn";
+        btn.setAttribute("type", "button");
+        btn.setAttribute("aria-label", i18n.t("copyReportMd"));
+        btn.setAttribute("title", i18n.t("copyReportMd"));
+        btn.setAttribute("tabindex", "0");
+        btn.innerHTML = `
+        <span class="mat-mdc-button-persistent-ripple mdc-icon-button__ripple"></span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
+          <path d="M7 16V8l3 4 3-4v8"/>
+          <path d="M16 8h2a2.5 2.5 0 0 1 2.5 2.5v3a2.5 2.5 0 0 1-2.5 2.5h-2V8z"/>
+        </svg>
+        <span class="qol-tooltip">${i18n.t("copyReportMd")}</span>
+        <span class="mat-focus-indicator"></span>
+      `;
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          const container = toolbar.closest('.response-container-content, [class*="response-container"], [class*="panel"]') || document;
+          const contentEl = container.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT) || document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT);
+          await this.executeCopyMarkdown(contentEl, btn);
+        });
+        const refBtn = toolbar.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CREATE_BTN) || toolbar.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_EXPORT_BTN) || toolbar.firstElementChild;
+        if (refBtn) {
+          toolbar.insertBefore(btn, refBtn);
+        } else {
+          toolbar.appendChild(btn);
+        }
+      });
+    },
+    // Inject "Copy as Markdown" into "Share & export" CDK Dropdown Menu
+    injectDeepResearchExportMenuItem() {
+      const menus = document.querySelectorAll('.cdk-overlay-pane gem-menu, .cdk-overlay-pane [role="menu"]');
+      if (!menus || menus.length === 0) return;
+      menus.forEach((menu) => {
+        if (menu.querySelector(".qol-export-md-menu-item")) return;
+        const nativeCopyItem = menu.querySelector('[data-test-id="copy-button"]') || menu.querySelector('[data-test-id="export-to-docs-button"]') || menu.querySelector('[data-test-id="share-button"]');
+        if (!nativeCopyItem) return;
+        const menuItem = document.createElement("button");
+        menuItem.className = "qol-export-md-menu-item";
+        menuItem.setAttribute("type", "button");
+        menuItem.setAttribute("role", "menuitem");
+        menuItem.setAttribute("tabindex", "0");
+        menuItem.setAttribute("aria-label", i18n.t("copyMdMenu"));
+        menuItem.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 16V8l3 4 3-4v8"/>
+          <path d="M16 8h2a2.5 2.5 0 0 1 2.5 2.5v3a2.5 2.5 0 0 1-2.5 2.5h-2V8z"/>
+        </svg>
+        <span class="menu-item-label">${i18n.t("copyMdMenu")}</span>
+      `;
+        const handleAction = async (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          const contentEl = document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT);
+          await this.executeCopyMarkdown(contentEl, menuItem, { isMenuItem: true });
+          const backdrop = document.querySelector(".cdk-overlay-backdrop");
+          if (backdrop) {
+            backdrop.click();
+          }
+        };
+        menuItem.addEventListener("click", handleAction);
+        menuItem.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            handleAction(e);
+          }
+        });
+        if (nativeCopyItem.nextSibling) {
+          nativeCopyItem.parentNode.insertBefore(menuItem, nativeCopyItem.nextSibling);
+        } else {
+          nativeCopyItem.parentNode.appendChild(menuItem);
+        }
+      });
     },
     // Toggle selection on all visible checkboxes
     handleToggleAll(e) {
@@ -1160,6 +1386,8 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
       items.forEach((item) => this.injectCheckbox(item));
       const responses = document.querySelectorAll("model-response");
       responses.forEach((res) => this.injectMarkdownCopyButton(res));
+      this.injectDeepResearchToolbarButton();
+      this.injectDeepResearchExportMenuItem();
       if (this.quotaData) {
         QuotaMonitor.updateSidebarQuotaUI(this.quotaData);
       }
