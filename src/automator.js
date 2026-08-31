@@ -17,9 +17,10 @@ export class GeminiAutomator {
     MENU_ITEMS: '.mat-mdc-menu-item, button[role="menuitem"]',
     NATIVE_COPY_ICON: 'mat-icon[fonticon="copy"], mat-icon[data-mat-icon-name="copy"], mat-icon[fonticon="content_copy"], mat-icon[data-mat-icon-name="content_copy"]',
     TOOLBAR_CONTAINER: '.actions-container, [role="toolbar"], .response-actions-container, .message-actions, .response-actions',
+    DEEP_RESEARCH_PANEL: 'deep-research-immersive-panel, immersive-panel, [class*="immersive-panel"], [class*="immersive"]',
     DEEP_RESEARCH_TOOLBAR: 'div.toolbar.has-title > div.action-buttons, .toolbar > .action-buttons',
     DEEP_RESEARCH_EXPORT_BTN: '[data-test-id="export-menu-button"], .export-menu-button',
-    DEEP_RESEARCH_CONTENT: 'message-content, .markdown.markdown-main-panel, .markdown',
+    DEEP_RESEARCH_CONTENT: '.markdown.markdown-main-panel, message-content, .markdown',
     DEEP_RESEARCH_CREATE_BTN: 'canvas-create-button, [data-test-id="create-button"]',
     DEEP_RESEARCH_STREAMING: '[aria-busy="true"], .streaming, mat-progress-spinner'
   };

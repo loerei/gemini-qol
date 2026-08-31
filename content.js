@@ -74,7 +74,7 @@
         "gem-icon-button",
         "gem-popover"
       ];
-      if (NOISE_TAGS.includes(tagName) || node.classList?.contains("qol-copy-markdown-btn") || node.classList?.contains("actions-container") || node.classList?.contains("screen-reader-only") || node.classList?.contains("cdk-visually-hidden")) {
+      if (NOISE_TAGS.includes(tagName) || node.classList?.contains("qol-copy-markdown-btn") || node.classList?.contains("actions-container") || node.classList?.contains("screen-reader-only") || node.classList?.contains("cdk-visually-hidden") || node.classList?.contains("thinking-panel") || node.classList?.contains("user-query-container")) {
         return "";
       }
       if (tagName === "table") {
@@ -333,9 +333,10 @@ ${childrenMarkdown}
       MENU_ITEMS: '.mat-mdc-menu-item, button[role="menuitem"]',
       NATIVE_COPY_ICON: 'mat-icon[fonticon="copy"], mat-icon[data-mat-icon-name="copy"], mat-icon[fonticon="content_copy"], mat-icon[data-mat-icon-name="content_copy"]',
       TOOLBAR_CONTAINER: '.actions-container, [role="toolbar"], .response-actions-container, .message-actions, .response-actions',
+      DEEP_RESEARCH_PANEL: 'deep-research-immersive-panel, immersive-panel, [class*="immersive-panel"], [class*="immersive"]',
       DEEP_RESEARCH_TOOLBAR: "div.toolbar.has-title > div.action-buttons, .toolbar > .action-buttons",
       DEEP_RESEARCH_EXPORT_BTN: '[data-test-id="export-menu-button"], .export-menu-button',
-      DEEP_RESEARCH_CONTENT: "message-content, .markdown.markdown-main-panel, .markdown",
+      DEEP_RESEARCH_CONTENT: ".markdown.markdown-main-panel, message-content, .markdown",
       DEEP_RESEARCH_CREATE_BTN: 'canvas-create-button, [data-test-id="create-button"]',
       DEEP_RESEARCH_STREAMING: '[aria-busy="true"], .streaming, mat-progress-spinner'
     };
@@ -1079,8 +1080,8 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
         btn.addEventListener("click", async (e) => {
           e.stopPropagation();
           e.preventDefault();
-          const container = toolbar.closest('.response-container-content, [class*="response-container"], [class*="panel"]') || document;
-          const contentEl = container.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT) || document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT);
+          const panel = toolbar.closest(GeminiAutomator.SELECTORS.DEEP_RESEARCH_PANEL) || toolbar.closest("chat-window, .main-content") || document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_PANEL);
+          const contentEl = panel?.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT) || document.querySelector(`${GeminiAutomator.SELECTORS.DEEP_RESEARCH_PANEL} ${GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT}`) || document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT);
           await this.executeCopyMarkdown(contentEl, btn);
         });
         const refBtn = toolbar.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CREATE_BTN) || toolbar.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_EXPORT_BTN) || toolbar.firstElementChild;
@@ -1115,7 +1116,8 @@ Weekly: ${quotaData.weeklyUsage} (${quotaData.weeklyReset})`;
         const handleAction = async (e) => {
           e.stopPropagation();
           e.preventDefault();
-          const contentEl = document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT);
+          const panel = document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_PANEL) || document.querySelector(".toolbar.has-title")?.closest("chat-window, .main-content") || document;
+          const contentEl = panel?.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT) || document.querySelector(`${GeminiAutomator.SELECTORS.DEEP_RESEARCH_PANEL} ${GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT}`) || document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT);
           await this.executeCopyMarkdown(contentEl, menuItem, { isMenuItem: true });
           const backdrop = document.querySelector(".cdk-overlay-backdrop");
           if (backdrop) {

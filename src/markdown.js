@@ -38,7 +38,9 @@ export class MarkdownConverter {
       node.classList?.contains('qol-copy-markdown-btn') ||
       node.classList?.contains('actions-container') ||
       node.classList?.contains('screen-reader-only') ||
-      node.classList?.contains('cdk-visually-hidden')
+      node.classList?.contains('cdk-visually-hidden') ||
+      node.classList?.contains('thinking-panel') ||
+      node.classList?.contains('user-query-container')
     ) {
       return '';
     }

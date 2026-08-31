@@ -273,9 +273,13 @@ export const ContentCoordinator = {
         e.stopPropagation();
         e.preventDefault();
 
-        // Find the active report content panel
-        const container = toolbar.closest('.response-container-content, [class*="response-container"], [class*="panel"]') || document;
-        const contentEl = container.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT) ||
+        // Scope resolution specifically to the active report panel
+        const panel = toolbar.closest(GeminiAutomator.SELECTORS.DEEP_RESEARCH_PANEL) ||
+                      toolbar.closest('chat-window, .main-content') ||
+                      document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_PANEL);
+
+        const contentEl = panel?.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT) ||
+                          document.querySelector(`${GeminiAutomator.SELECTORS.DEEP_RESEARCH_PANEL} ${GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT}`) ||
                           document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT);
 
         await this.executeCopyMarkdown(contentEl, btn);
@@ -325,7 +329,15 @@ export const ContentCoordinator = {
         e.stopPropagation();
         e.preventDefault();
 
-        const contentEl = document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT);
+        // Scope resolution specifically to the active report panel
+        const panel = document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_PANEL) ||
+                      document.querySelector('.toolbar.has-title')?.closest('chat-window, .main-content') ||
+                      document;
+
+        const contentEl = panel?.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT) ||
+                          document.querySelector(`${GeminiAutomator.SELECTORS.DEEP_RESEARCH_PANEL} ${GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT}`) ||
+                          document.querySelector(GeminiAutomator.SELECTORS.DEEP_RESEARCH_CONTENT);
+
         await this.executeCopyMarkdown(contentEl, menuItem, { isMenuItem: true });
 
         // Programmatically close CDK overlay dropdown
