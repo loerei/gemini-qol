@@ -341,27 +341,19 @@ ${childrenMarkdown}
       DEEP_RESEARCH_STREAMING: '[aria-busy="true"], .streaming, mat-progress-spinner'
     };
     /**
-     * Helper to fire robust synthetic click events for Angular web components & MDC buttons.
+     * Dispatches clean click event to interactive targets.
      * @param {HTMLElement} el 
      */
     static triggerClick(el) {
       if (!el) return;
       const innerNative = el.querySelector?.('button, [role="button"], a, input');
-      const targetEl = innerNative || el.closest('button, [role="menuitem"], a, input, gem-button, gmp-menu-item, gem-menu-item, .mat-mdc-menu-item') || el;
-      if (!targetEl || targetEl.disabled || targetEl.getAttribute("aria-disabled") === "true") return;
+      const targetEl = innerNative || el.closest?.('button, [role="button"], a, input, [role="menuitem"], gem-button, .mat-mdc-menu-item') || el;
+      if (!targetEl || targetEl.disabled || targetEl.getAttribute?.("aria-disabled") === "true") return;
       try {
         if (typeof targetEl.focus === "function") targetEl.focus();
       } catch (e) {
       }
-      const pointerDownOpts = { bubbles: true, cancelable: true, view: window, button: 0, buttons: 1, pointerId: 1, pointerType: "mouse", isPrimary: true };
-      const mouseDownOpts = { bubbles: true, cancelable: true, view: window, button: 0, buttons: 1 };
-      const pointerUpOpts = { bubbles: true, cancelable: true, view: window, button: 0, buttons: 0, pointerId: 1, pointerType: "mouse", isPrimary: true };
-      const mouseUpOpts = { bubbles: true, cancelable: true, view: window, button: 0, buttons: 0 };
       try {
-        targetEl.dispatchEvent(new PointerEvent("pointerdown", pointerDownOpts));
-        targetEl.dispatchEvent(new MouseEvent("mousedown", mouseDownOpts));
-        targetEl.dispatchEvent(new PointerEvent("pointerup", pointerUpOpts));
-        targetEl.dispatchEvent(new MouseEvent("mouseup", mouseUpOpts));
         targetEl.click();
       } catch (e) {
       }
@@ -609,12 +601,11 @@ ${childrenMarkdown}
     }
     /**
      * Query the DOM for the dynamic Delete option button in open menus.
-     * Multi-tier language-agnostic matcher (Attributes -> Icons -> Multi-language Fallback)
      * @returns {HTMLElement|null} The delete menu item element
      */
     static findDeleteMenuButton() {
       const exact = document.querySelector(
-        '.cdk-overlay-pane [data-test-id="delete-button"], .mat-mdc-menu-panel [data-test-id="delete-button"], [role="menu"] [data-test-id="delete-button"], .cdk-overlay-pane [jslog*="186000"], .cdk-overlay-pane [value="delete"]'
+        '.cdk-overlay-pane [data-test-id="delete-button"], .mat-mdc-menu-panel [data-test-id="delete-button"], [role="menu"] [data-test-id="delete-button"], [data-test-id="delete-button"]'
       );
       if (exact) {
         return exact.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || exact;
@@ -625,63 +616,21 @@ ${childrenMarkdown}
       if (icon) {
         return icon.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || icon;
       }
-      const deleteKeywords = ["x\xF3a", "xo\xE1", "delete", "supprimer", "eliminar", "l\xF6schen", "\u524A\u9664", "\u5220\u9664", "\uC0AD\uC81C"];
-      const menuPanels = document.querySelectorAll(
-        '.mat-mdc-menu-panel, .mat-menu-panel, [role="menu"], .cdk-overlay-pane, [class*="menu"]'
-      );
-      for (const panel of menuPanels) {
-        const candidates = panel.querySelectorAll(
-          '.mat-mdc-menu-item, [role="menuitem"], gmp-menu-item, gem-menu-item, button, div, a, span'
-        );
-        for (const el of candidates) {
-          const text = (el.textContent || "").trim().toLowerCase();
-          if (deleteKeywords.some((kw) => text === kw || text.includes(kw))) {
-            return el.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || el;
-          }
-        }
-      }
       return null;
     }
     /**
      * Query the DOM for the dynamic Delete confirmation button in popup modal.
-     * Multi-tier language-agnostic matcher (CDK Focus & Telemetry Key -> Dialog Action Position -> Multi-language Fallback)
+     * Target the second action button (Confirm) in the active dialog without language scan.
      * @returns {HTMLElement|null} The confirm button element
      */
     static findConfirmButton() {
-      const primaryFocusBtn = document.querySelector(
-        '[role="dialog"] gem-button[cdkfocusinitial], mat-dialog-container gem-button[cdkfocusinitial], [role="dialog"] [jslog*="186009"], mat-dialog-container [jslog*="186009"]'
-      );
-      if (primaryFocusBtn) {
-        return primaryFocusBtn.querySelector?.("button") || primaryFocusBtn.closest("button") || primaryFocusBtn;
-      }
-      const dialogActions = document.querySelectorAll("mat-dialog-actions, .mat-mdc-dialog-actions, .mdc-dialog__actions");
-      const cancelKeywords = ["hu\u1EF7", "h\u1EE7y", "cancel", "annuler", "cancelar", "abbrechen", "\u30AD\u30E3\u30F3\u30BB\u30EB", "\u53D6\u6D88", "\uCDE8\uC18C"];
-      const deleteKeywords = ["x\xF3a", "xo\xE1", "delete", "confirm", "supprimer", "eliminar", "l\xF6schen", "\u524A\u9664", "\u786E\u5B9A", "\uD655\uC778"];
-      for (let i = dialogActions.length - 1; i >= 0; i--) {
-        const candidates = dialogActions[i].querySelectorAll("gem-button, button");
-        for (const cand of candidates) {
-          const text = (cand.textContent || "").trim().toLowerCase();
-          if (cancelKeywords.some((kw) => text.includes(kw))) {
-            continue;
-          }
-          if (deleteKeywords.some((kw) => text === kw || text.includes(kw))) {
-            return cand.querySelector?.("button") || cand.closest("button") || cand;
-          }
-        }
-      }
-      const dialogContainers = document.querySelectorAll(
-        'mat-dialog-container, .mat-mdc-dialog-container, [role="dialog"], gmp-dialog, .cdk-overlay-pane, [class*="dialog"]'
-      );
-      for (let i = dialogContainers.length - 1; i >= 0; i--) {
-        const dialog = dialogContainers[i];
-        const buttons = dialog.querySelectorAll("gem-button, button, span.gds-body-m");
-        for (const btn of buttons) {
-          const text = (btn.textContent || "").trim().toLowerCase();
-          if (cancelKeywords.some((kw) => text.includes(kw))) {
-            continue;
-          }
-          if (deleteKeywords.some((kw) => text === kw || text.includes(kw))) {
-            return btn.querySelector?.("button") || btn.closest("button") || btn;
+      const dialogs = document.querySelectorAll('message-dialog, mat-dialog-container, [role="dialog"]');
+      if (dialogs.length > 0) {
+        for (let i = dialogs.length - 1; i >= 0; i--) {
+          const dialog = dialogs[i];
+          const confirmBtn = dialog.querySelector("mat-dialog-actions gem-button:nth-of-type(2) button, mat-dialog-actions gem-button:nth-of-type(2), gem-button:nth-of-type(2) button");
+          if (confirmBtn) {
+            return confirmBtn.querySelector?.("button") || confirmBtn;
           }
         }
       }
@@ -699,7 +648,7 @@ ${childrenMarkdown}
       await this.cleanupOverlaysAndScrollLocks();
     }
     /**
-     * Automation pipeline to delete a conversation cleanly.
+     * Automation pipeline to delete a conversation cleanly and rapidly.
      * @param {string} chatId - ID of the conversation
      * @returns {Promise<number>} Elapsed time in ms
      */
@@ -715,9 +664,12 @@ ${childrenMarkdown}
       item.classList.add("qol-deleting");
       item.dataset.qolStatus = "deleting";
       item.style.pointerEvents = "none";
-      item.style.opacity = "0.6";
-      item.style.transition = "opacity 0.2s ease, max-height 0.2s ease";
+      item.style.opacity = "0.5";
       try {
+        try {
+          item.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+        } catch (e) {
+        }
         let actionsBtn = item.querySelector(_GeminiAutomator.SELECTORS.ACTIONS_BTN);
         if (!actionsBtn) {
           const moreVertIcon = item.querySelector('mat-icon[fonticon="more_vert"], mat-icon[data-mat-icon-name="more_vert"], [data-mat-icon-name="more_vert"]');
@@ -730,17 +682,17 @@ ${childrenMarkdown}
         }
         this.triggerClick(actionsBtn);
         const overlayContainer = document.querySelector(".cdk-overlay-container") || document.body;
-        const deleteBtn = await this.waitForElement(() => _GeminiAutomator.findDeleteMenuButton(), 1500, overlayContainer);
+        const deleteBtn = await this.waitForElement(() => _GeminiAutomator.findDeleteMenuButton(), 800, overlayContainer);
         if (!deleteBtn) {
           throw new Error("Timeout waiting for Delete menu option");
         }
         this.triggerClick(deleteBtn);
-        const confirmBtn = await this.waitForElement(() => _GeminiAutomator.findConfirmButton(), 1500, overlayContainer);
+        const confirmBtn = await this.waitForElement(() => _GeminiAutomator.findConfirmButton(), 800, overlayContainer);
         if (!confirmBtn) {
           throw new Error("Timeout waiting for Confirm button in modal dialog");
         }
         this.triggerClick(confirmBtn);
-        await this.waitForElementToDisappear('mat-dialog-container, [role="dialog"], .cdk-overlay-backdrop', 3500);
+        await this.wait(100);
         item.style.display = "none";
         item.classList.remove("qol-deleting");
         item.dataset.qolStatus = "deleted";
@@ -771,19 +723,14 @@ ${childrenMarkdown}
         }
         return;
       }
-      const dialogContainers = document.querySelectorAll(
-        'mat-dialog-container, .mat-mdc-dialog-container, [role="dialog"], gmp-dialog, .cdk-overlay-pane'
-      );
-      for (const dialog of dialogContainers) {
-        const buttons = dialog.querySelectorAll("button");
-        for (const btn of buttons) {
-          const text = (btn.textContent || "").trim().toLowerCase();
-          if (text.includes("hu\u1EF7") || text.includes("h\u1EE7y") || text.includes("cancel")) {
-            try {
-              btn.click();
-            } catch (e) {
-            }
-            return;
+      const dialogs = document.querySelectorAll('message-dialog, mat-dialog-container, [role="dialog"]');
+      if (dialogs.length > 0) {
+        const activeDialog = dialogs[dialogs.length - 1];
+        const cancel = activeDialog.querySelector("mat-dialog-actions gem-button:nth-of-type(1), mat-dialog-actions button");
+        if (cancel) {
+          try {
+            (cancel.querySelector?.("button") || cancel).click();
+          } catch (e) {
           }
         }
       }

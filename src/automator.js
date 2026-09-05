@@ -26,37 +26,23 @@ export class GeminiAutomator {
   };
 
   /**
-   * Helper to fire robust synthetic click events for Angular web components & MDC buttons.
+   * Dispatches clean click event to interactive targets.
    * @param {HTMLElement} el 
    */
   static triggerClick(el) {
     if (!el) return;
 
-    // Resolve down to the deepest native interactive button if el is a web component wrapper (gem-button, gem-icon-button)
     const innerNative = el.querySelector?.('button, [role="button"], a, input');
-    const targetEl = innerNative || el.closest('button, [role="menuitem"], a, input, gem-button, gmp-menu-item, gem-menu-item, .mat-mdc-menu-item') || el;
-    if (!targetEl || targetEl.disabled || targetEl.getAttribute('aria-disabled') === 'true') return;
+    const targetEl = innerNative || el.closest?.('button, [role="button"], a, input, [role="menuitem"], gem-button, .mat-mdc-menu-item') || el;
+    if (!targetEl || targetEl.disabled || targetEl.getAttribute?.('aria-disabled') === 'true') return;
 
     try {
       if (typeof targetEl.focus === 'function') targetEl.focus();
-    } catch (e) {
-      /* ignore focus error */
-    }
-
-    const pointerDownOpts = { bubbles: true, cancelable: true, view: window, button: 0, buttons: 1, pointerId: 1, pointerType: 'mouse', isPrimary: true };
-    const mouseDownOpts = { bubbles: true, cancelable: true, view: window, button: 0, buttons: 1 };
-    const pointerUpOpts = { bubbles: true, cancelable: true, view: window, button: 0, buttons: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true };
-    const mouseUpOpts = { bubbles: true, cancelable: true, view: window, button: 0, buttons: 0 };
+    } catch (e) {}
 
     try {
-      targetEl.dispatchEvent(new PointerEvent('pointerdown', pointerDownOpts));
-      targetEl.dispatchEvent(new MouseEvent('mousedown', mouseDownOpts));
-      targetEl.dispatchEvent(new PointerEvent('pointerup', pointerUpOpts));
-      targetEl.dispatchEvent(new MouseEvent('mouseup', mouseUpOpts));
       targetEl.click();
-    } catch (e) {
-      /* ignore synthetic event error */
-    }
+    } catch (e) {}
   }
 
   /**
@@ -310,23 +296,19 @@ export class GeminiAutomator {
 
   /**
    * Query the DOM for the dynamic Delete option button in open menus.
-   * Multi-tier language-agnostic matcher (Attributes -> Icons -> Multi-language Fallback)
    * @returns {HTMLElement|null} The delete menu item element
    */
   static findDeleteMenuButton() {
-    // 1. Direct Attribute & Telemetry Key Match (Language Independent)
     const exact = document.querySelector(
       '.cdk-overlay-pane [data-test-id="delete-button"], ' +
       '.mat-mdc-menu-panel [data-test-id="delete-button"], ' +
       '[role="menu"] [data-test-id="delete-button"], ' +
-      '.cdk-overlay-pane [jslog*="186000"], ' +
-      '.cdk-overlay-pane [value="delete"]'
+      '[data-test-id="delete-button"]'
     );
     if (exact) {
       return exact.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || exact;
     }
 
-    // 2. Icon Identifier Match (fonticon="delete" / fonticonname="delete")
     const icon = document.querySelector(
       '.cdk-overlay-pane mat-icon[fonticon="delete"], ' +
       '.cdk-overlay-pane gem-icon[fonticonname="delete"], ' +
@@ -336,82 +318,26 @@ export class GeminiAutomator {
       return icon.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || icon;
     }
 
-    // 3. Multi-Language Text Match Fallback
-    const deleteKeywords = ['xóa', 'xoá', 'delete', 'supprimer', 'eliminar', 'löschen', '削除', '删除', '삭제'];
-    const menuPanels = document.querySelectorAll(
-      '.mat-mdc-menu-panel, .mat-menu-panel, [role="menu"], .cdk-overlay-pane, [class*="menu"]'
-    );
-
-    for (const panel of menuPanels) {
-      const candidates = panel.querySelectorAll(
-        '.mat-mdc-menu-item, [role="menuitem"], gmp-menu-item, gem-menu-item, button, div, a, span'
-      );
-      for (const el of candidates) {
-        const text = (el.textContent || '').trim().toLowerCase();
-        if (deleteKeywords.some(kw => text === kw || text.includes(kw))) {
-          return el.closest('[role="menuitem"], .mat-mdc-menu-item, button, gmp-menu-item, gem-menu-item') || el;
-        }
-      }
-    }
-
     return null;
   }
 
   /**
    * Query the DOM for the dynamic Delete confirmation button in popup modal.
-   * Multi-tier language-agnostic matcher (CDK Focus & Telemetry Key -> Dialog Action Position -> Multi-language Fallback)
+   * Target the second action button (Confirm) in the active dialog without language scan.
    * @returns {HTMLElement|null} The confirm button element
    */
   static findConfirmButton() {
-    // 1. Angular Focus & Telemetry Key Match (Language Independent)
-    const primaryFocusBtn = document.querySelector(
-      '[role="dialog"] gem-button[cdkfocusinitial], ' +
-      'mat-dialog-container gem-button[cdkfocusinitial], ' +
-      '[role="dialog"] [jslog*="186009"], ' +
-      'mat-dialog-container [jslog*="186009"]'
-    );
-    if (primaryFocusBtn) {
-      return primaryFocusBtn.querySelector?.('button') || primaryFocusBtn.closest('button') || primaryFocusBtn;
-    }
-
-    // 2. Search inside mat-dialog-actions (Primary non-cancel button)
-    const dialogActions = document.querySelectorAll('mat-dialog-actions, .mat-mdc-dialog-actions, .mdc-dialog__actions');
-    const cancelKeywords = ['huỷ', 'hủy', 'cancel', 'annuler', 'cancelar', 'abbrechen', 'キャンセル', '取消', '취소'];
-    const deleteKeywords = ['xóa', 'xoá', 'delete', 'confirm', 'supprimer', 'eliminar', 'löschen', '削除', '确定', '확인'];
-
-    for (let i = dialogActions.length - 1; i >= 0; i--) {
-      const candidates = dialogActions[i].querySelectorAll('gem-button, button');
-      for (const cand of candidates) {
-        const text = (cand.textContent || '').trim().toLowerCase();
-        if (cancelKeywords.some(kw => text.includes(kw))) {
-          continue;
-        }
-        if (deleteKeywords.some(kw => text === kw || text.includes(kw))) {
-          return cand.querySelector?.('button') || cand.closest('button') || cand;
+    const dialogs = document.querySelectorAll('message-dialog, mat-dialog-container, [role="dialog"]');
+    if (dialogs.length > 0) {
+      for (let i = dialogs.length - 1; i >= 0; i--) {
+        const dialog = dialogs[i];
+        const confirmBtn = dialog.querySelector('mat-dialog-actions gem-button:nth-of-type(2) button, mat-dialog-actions gem-button:nth-of-type(2), gem-button:nth-of-type(2) button');
+        if (confirmBtn) {
+          return confirmBtn.querySelector?.('button') || confirmBtn;
         }
       }
     }
 
-    // 3. Search inside open modal / dialog elements (reverse order)
-    const dialogContainers = document.querySelectorAll(
-      'mat-dialog-container, .mat-mdc-dialog-container, [role="dialog"], gmp-dialog, .cdk-overlay-pane, [class*="dialog"]'
-    );
-    
-    for (let i = dialogContainers.length - 1; i >= 0; i--) {
-      const dialog = dialogContainers[i];
-      const buttons = dialog.querySelectorAll('gem-button, button, span.gds-body-m');
-      for (const btn of buttons) {
-        const text = (btn.textContent || '').trim().toLowerCase();
-        if (cancelKeywords.some(kw => text.includes(kw))) {
-          continue;
-        }
-        if (deleteKeywords.some(kw => text === kw || text.includes(kw))) {
-          return btn.querySelector?.('button') || btn.closest('button') || btn;
-        }
-      }
-    }
-
-    // 4. Try legacy and data-test-id selectors
     const testIdBtn = document.querySelector(GeminiAutomator.SELECTORS.CONFIRM_BTN);
     if (testIdBtn) {
       return testIdBtn.querySelector?.('button') || testIdBtn.closest('button') || testIdBtn;
@@ -429,7 +355,7 @@ export class GeminiAutomator {
   }
 
   /**
-   * Automation pipeline to delete a conversation cleanly.
+   * Automation pipeline to delete a conversation cleanly and rapidly.
    * @param {string} chatId - ID of the conversation
    * @returns {Promise<number>} Elapsed time in ms
    */
@@ -448,11 +374,14 @@ export class GeminiAutomator {
     item.classList.add('qol-deleting');
     item.dataset.qolStatus = 'deleting';
     item.style.pointerEvents = 'none';
-    item.style.opacity = '0.6';
-    item.style.transition = 'opacity 0.2s ease, max-height 0.2s ease';
+    item.style.opacity = '0.5';
 
     try {
-      // 1. Open conversation Actions Menu
+      // 1. Hover/Focus and trigger Actions Menu
+      try {
+        item.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+      } catch (e) {}
+
       let actionsBtn = item.querySelector(GeminiAutomator.SELECTORS.ACTIONS_BTN);
       if (!actionsBtn) {
         const moreVertIcon = item.querySelector('mat-icon[fonticon="more_vert"], mat-icon[data-mat-icon-name="more_vert"], [data-mat-icon-name="more_vert"]');
@@ -465,23 +394,23 @@ export class GeminiAutomator {
       }
       this.triggerClick(actionsBtn);
 
-      // 2. Click Delete button in menu
+      // 2. Click Delete button in menu (fast wait ~800ms timeout)
       const overlayContainer = document.querySelector('.cdk-overlay-container') || document.body;
-      const deleteBtn = await this.waitForElement(() => GeminiAutomator.findDeleteMenuButton(), 1500, overlayContainer);
+      const deleteBtn = await this.waitForElement(() => GeminiAutomator.findDeleteMenuButton(), 800, overlayContainer);
       if (!deleteBtn) {
         throw new Error('Timeout waiting for Delete menu option');
       }
       this.triggerClick(deleteBtn);
 
-      // 3. Confirm in popup dialog
-      const confirmBtn = await this.waitForElement(() => GeminiAutomator.findConfirmButton(), 1500, overlayContainer);
+      // 3. Confirm in popup dialog (fast wait ~800ms timeout)
+      const confirmBtn = await this.waitForElement(() => GeminiAutomator.findConfirmButton(), 800, overlayContainer);
       if (!confirmBtn) {
         throw new Error('Timeout waiting for Confirm button in modal dialog');
       }
       this.triggerClick(confirmBtn);
 
-      // 4. Wait for modal & backdrop unmount naturally (give sufficient time for backend delete RPC)
-      await this.waitForElementToDisappear('mat-dialog-container, [role="dialog"], .cdk-overlay-backdrop', 3500);
+      // 4. Settle brief cooldown (100ms) without blocking on 3.5s backdrop unmount
+      await this.wait(100);
 
       // Success State
       item.style.display = 'none';
@@ -514,17 +443,12 @@ export class GeminiAutomator {
       try { cancelBtn.click(); } catch (e) {}
       return;
     }
-    const dialogContainers = document.querySelectorAll(
-      'mat-dialog-container, .mat-mdc-dialog-container, [role="dialog"], gmp-dialog, .cdk-overlay-pane'
-    );
-    for (const dialog of dialogContainers) {
-      const buttons = dialog.querySelectorAll('button');
-      for (const btn of buttons) {
-        const text = (btn.textContent || '').trim().toLowerCase();
-        if (text.includes('huỷ') || text.includes('hủy') || text.includes('cancel')) {
-          try { btn.click(); } catch (e) {}
-          return;
-        }
+    const dialogs = document.querySelectorAll('message-dialog, mat-dialog-container, [role="dialog"]');
+    if (dialogs.length > 0) {
+      const activeDialog = dialogs[dialogs.length - 1];
+      const cancel = activeDialog.querySelector('mat-dialog-actions gem-button:nth-of-type(1), mat-dialog-actions button');
+      if (cancel) {
+        try { (cancel.querySelector?.('button') || cancel).click(); } catch (e) {}
       }
     }
   }
